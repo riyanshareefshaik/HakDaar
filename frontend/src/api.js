@@ -9,13 +9,18 @@ export class ApiError extends Error {
   }
 }
 
+// Session token from /auth/login ('worker_id.signature'); sent with every request.
+let token = null
+export const setToken = (t) => { token = t || null }
+const authHeader = () => (token ? { Authorization: `Bearer ${token}` } : {})
+
 const OFFLINE = 'Cannot reach the HakDaar server. Is the backend running on port 8000?'
 
 async function send(path, method, body) {
   try {
     return await fetch(`${BASE}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeader() },
       body: body ? JSON.stringify(body) : undefined,
     })
   } catch {
@@ -77,7 +82,7 @@ async function transcribe(blob, language) {
   if (language) form.append('language', language)
   let res
   try {
-    res = await fetch(`${BASE}/transcribe`, { method: 'POST', body: form })
+    res = await fetch(`${BASE}/transcribe`, { method: 'POST', body: form, headers: authHeader() })
   } catch {
     throw new ApiError('Cannot reach the HakDaar server. Is the backend running on port 8000?', 0, 'backend')
   }

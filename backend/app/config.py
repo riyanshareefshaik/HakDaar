@@ -28,5 +28,11 @@ class Settings:
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]
 
+    # Hosted on the internet: every worker's data needs that worker's session token, and the
+    # demo-only routes (list all workers, create without a PIN, wipe everything) are switched off.
+    public_mode: bool = os.getenv("PUBLIC_MODE", "false").lower() in ("1", "true", "yes")
+    # Signs session tokens. If unset, a random one is created next to the database and reused.
+    session_secret: str = os.getenv("SESSION_SECRET", "")
+
 
 settings = Settings()

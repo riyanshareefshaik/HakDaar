@@ -56,7 +56,7 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
               <button onClick={() => onOpenLegal('terms')} className="hover:text-white">{s.terms}</button>
               <button onClick={() => onOpenLegal('privacy')} className="hover:text-white">{s.privacy}</button>
             </span>
-            <button onClick={onResetAll} className="hover:text-owed">{s.resetAll} (demo)</button>
+            {!health?.public_mode && <button onClick={onResetAll} className="hover:text-owed">{s.resetAll} (demo)</button>}
           </div>
         </div>
       </aside>

@@ -418,3 +418,26 @@ def test_streamed_chat_error_before_saving_is_a_normal_error(client, fake, monke
     w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
     r = client.post("/chat?stream=true", json={"worker_id": w, "message": "5 days"})
     assert r.status_code == 503 and client.get(f"/workers/{w}/messages").json() == []
+
+
+def test_public_mode_only_the_signed_in_worker_sees_their_data(client, fake, monkeypatch):
+    from app.config import settings
+    reg = {"name": "Santosh", "phone": "9876543210", "pin": "1234", "pin_confirm": "1234", "language": "en",
+           "recovery_question": 1, "recovery_answer": "hyderabad", "accept_terms": True}
+    w = client.post("/auth/register", json=reg).json()["id"]
+    other = client.post("/auth/register", json={**reg, "name": "Ravi", "phone": "9123456780"}).json()["id"]
+    monkeypatch.setattr(settings, "public_mode", True)
+
+    assert client.get("/workers").status_code == 404
+    assert client.post("/reset").status_code == 404
+    assert client.get(f"/workers/{w}/ledger").status_code == 401
+    token = client.post("/auth/login", json={"phone": "9876543210", "pin": "1234"}).json()["token"]
+    h = {"Authorization": f"Bearer {token}"}
+    assert client.get(f"/workers/{w}/ledger", headers=h).status_code == 200
+    assert client.get(f"/workers/{other}/messages", headers=h).status_code == 403
+    assert client.delete(f"/workers/{other}", headers=h).status_code == 403
+    assert client.post("/chat", json={"worker_id": other, "message": "hi"}, headers=h).status_code == 403
+    forged = {"Authorization": f"Bearer {other}.{token.rsplit('.', 1)[1]}"}
+    assert client.get(f"/workers/{other}/ledger", headers=forged).status_code == 401
+    fake.next_events = [ExtractedEvent(type="work_day", employer_name="Rakesh", days=2)]
+    assert client.post("/chat", json={"worker_id": w, "message": "2 days"}, headers=h).status_code == 200

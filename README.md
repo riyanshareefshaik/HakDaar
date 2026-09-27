@@ -259,6 +259,12 @@ scripts/            start-hindsight.sh, start-backend.sh, start-frontend.sh
 | `HINDSIGHT_LLM_MODEL` | `openai/gpt-oss-20b` | Model Hindsight uses internally |
 | `DATABASE_PATH` | `hakdaar.db` | SQLite file (relative to `backend/`) |
 
+## Hosting
+
+`docker compose up -d --build` runs the landing page, app, API and Hindsight behind Caddy with HTTPS.
+It runs in public mode: each worker's data needs their login session, and the demo-only routes are off.
+See [DEPLOY.md](DEPLOY.md) for hakdaar.me, either on a small server or from a laptop through a Cloudflare Tunnel.
+
 ## Tests
 
 ```bash

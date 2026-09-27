@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import chat, db, ledger, llm, memory, nudges
+from . import auth, chat, db, ledger, llm, memory, nudges
 from .config import settings
 from .health import check_groq, check_hindsight
 
@@ -38,6 +38,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _own_data_only(request: Request, call_next):
+    """Every /workers/{id}/... route needs that worker's session token (public mode only)."""
+    parts = request.url.path.strip("/").split("/")
+    if settings.public_mode and len(parts) >= 2 and parts[0] == "workers" and request.method != "OPTIONS":
+        try:
+            auth.require(request, parts[1])
+        except HTTPException as e:
+            return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+    return await call_next(request)
 
 
 # Dependency outages become clear 503s instead of stack traces.
@@ -119,16 +131,19 @@ async def health():
         "status": "ok" if hindsight["ok"] and groq["ok"] else "degraded",
         "hindsight": hindsight,
         "groq": groq,
+        "public_mode": settings.public_mode,
     }
 
 
 @app.get("/workers")
 def list_workers():
+    auth.demo_only()
     return db.list_workers()
 
 
 @app.post("/workers", status_code=201)
 async def create_worker(body: WorkerIn):
+    auth.demo_only()
     w = db.create_worker(body.name.strip(), body.language, body.phone)
     await memory.ensure_bank(memory.worker_bank(w["id"]))  # best-effort, never fails the request
     return w
@@ -199,7 +214,7 @@ def login(body: LoginIn):
     row = db.find_by_phone(_norm_phone(body.phone))
     if not row or not db.check_pin(body.pin, row.get("pin_hash")):
         raise HTTPException(401, "Wrong phone number or PIN.")
-    return db.get_worker(row["id"])
+    return {**db.get_worker(row["id"]), "token": auth.issue(row["id"])}
 
 
 class WorkerPatch(BaseModel):
@@ -272,9 +287,10 @@ async def delete_event(worker_id: str, event_id: int):
 
 
 @app.post("/chat")
-async def post_chat(body: ChatIn, stream: bool = False):
+async def post_chat(body: ChatIn, request: Request, stream: bool = False):
     """With ?stream=true the answer is NDJSON in two parts: {"stage": "recorded", ledger, ...} as soon
     as the facts are saved (so the wallet updates instantly), then {"stage": "done", ...the full reply}."""
+    auth.require(request, body.worker_id)
     worker = _worker_or_404(body.worker_id)
     if not stream:
         return await chat.handle_message(worker, body.message.strip())
@@ -326,8 +342,10 @@ MAX_AUDIO_BYTES = 10 * 1024 * 1024  # ~10 minutes of compressed speech; Groq's l
 
 
 @app.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...), language: Literal["en", "te", "hi"] | None = Form(None)):
+async def transcribe(request: Request, audio: UploadFile = File(...),
+                     language: Literal["en", "te", "hi"] | None = Form(None)):
     """Voice input: the browser records audio, Groq Whisper turns it into text."""
+    auth.require_any(request)
     data = await audio.read()
     if not data:
         raise HTTPException(400, "The recording was empty. Please try again.")
@@ -393,7 +411,8 @@ async def employer_reputation(name: str):
 
 @app.post("/reset")
 async def reset_all():
-    """Wipe SQLite and every HakDaar memory bank (fresh start)."""
+    """Wipe SQLite and every HakDaar memory bank (fresh start). Local demo only."""
+    auth.demo_only()
     bank_ids = [memory.worker_bank(w["id"]) for w in db.list_workers()] + [memory.REPUTATION_BANK]
     db.reset_db()
     deleted, warning = 0, None

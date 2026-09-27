@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BellRing, CircleAlert, CircleHelp, Loader2, MessagesSquare, RefreshCw, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
-import { ApiError, api, inr } from './api'
+import { ApiError, api, inr, setToken } from './api'
 import { t } from './i18n'
 import { useCountUp } from './hooks'
 import Header from './components/Header'
@@ -83,12 +83,15 @@ export default function App() {
     setBackendError(null)
     try {
       setHealth(await api.health())
-      const id = readStored(SESSION_KEY)
-      if (id) {
+      // The stored session is the login token ('worker_id.signature'); older sessions are a bare id.
+      const session = readStored(SESSION_KEY)
+      if (session) {
+        const id = session.includes('.') ? session.slice(0, session.lastIndexOf('.')) : session
+        setToken(session.includes('.') ? session : null)
         try {
           setWorker(await api.worker(id))
         } catch (e) {
-          if (e instanceof ApiError && e.status === 404) writeStored(SESSION_KEY, null)
+          if (e instanceof ApiError && [401, 403, 404].includes(e.status)) { writeStored(SESSION_KEY, null); setToken(null) }
           else throw e
         }
       }
@@ -168,8 +171,9 @@ export default function App() {
   }, [worker?.id, loadWorker])
 
   // ---------- auth ----------
-  const startSession = (w) => {
-    writeStored(SESSION_KEY, w.id)
+  const startSession = ({ token, ...w }) => {
+    setToken(token)
+    writeStored(SESSION_KEY, token || w.id)
     setWorker(w)
     setTab('chat')
   }
@@ -178,6 +182,7 @@ export default function App() {
   const logout = () => {
     stopPolling()
     writeStored(SESSION_KEY, null)
+    setToken(null)
     setDrawer({ open: false })
     setWorker(null)
     setMessages([]); setLedger(null); setAlerts([]); setBanner(null)
