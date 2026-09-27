@@ -38,22 +38,56 @@ def client() -> AsyncOpenAI:
     return _client
 
 
-async def _chat(messages: list[dict], *, json_mode: bool, temperature: float, max_tokens: int) -> str:
-    kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
+# Tried in order if the configured GROQ_MODEL isn't available on this Groq account.
+FALLBACK_MODELS = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.1-8b-instant"]
+_active_model: str | None = None
+
+
+async def _pick_fallback_model(bad: str) -> str | None:
     try:
-        resp = await client().chat.completions.create(
-            model=settings.groq_model, messages=messages, temperature=temperature,
-            max_tokens=max_tokens, **kwargs,
-        )
-    except APIStatusError as e:
-        if e.status_code == 401:
-            raise LLMUnavailable("Groq rejected the API key. Check GROQ_API_KEY in .env.") from e
-        if e.status_code == 429:
-            raise LLMUnavailable("Groq rate limit reached. Please wait a few seconds and try again.") from e
-        raise LLMUnavailable(f"Groq returned an error ({e.status_code}). Please try again.") from e
-    except (APIConnectionError, APITimeoutError) as e:
-        raise LLMUnavailable("Cannot reach Groq right now. Check your internet connection.") from e
-    return resp.choices[0].message.content or ""
+        available = {m.id async for m in client().models.list()}
+    except Exception:  # noqa: BLE001 - any failure here just means "no fallback"
+        return None
+    return next((m for m in FALLBACK_MODELS if m in available and m != bad), None)
+
+
+def _groq_error_text(e: APIStatusError) -> str:
+    body = e.body if isinstance(e.body, dict) else {}
+    err = body.get("error", body)
+    return (err.get("message") if isinstance(err, dict) else None) or str(e.message)
+
+
+async def _chat(messages: list[dict], *, json_mode: bool, temperature: float, max_tokens: int) -> str:
+    global _active_model
+    kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
+    model = _active_model or settings.groq_model
+    for attempt in range(2):
+        try:
+            resp = await client().chat.completions.create(
+                model=model, messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs,
+            )
+            return resp.choices[0].message.content or ""
+        except APIStatusError as e:
+            detail = _groq_error_text(e)
+            log.warning("Groq error %s for model %s: %s", e.status_code, model, detail)
+            if e.status_code == 404 and attempt == 0:
+                # Model not found / decommissioned: switch to one this account can use and retry once.
+                fallback = await _pick_fallback_model(model)
+                if fallback:
+                    log.warning("GROQ_MODEL '%s' unavailable; using '%s' instead. Update GROQ_MODEL in .env.",
+                                model, fallback)
+                    _active_model = model = fallback
+                    continue
+                raise LLMUnavailable(f"Groq model '{model}' is not available. Set GROQ_MODEL in .env "
+                                     f"(e.g. llama-3.3-70b-versatile). Groq said: {detail}") from e
+            if e.status_code == 401:
+                raise LLMUnavailable("Groq rejected the API key. Check GROQ_API_KEY in .env.") from e
+            if e.status_code == 429:
+                raise LLMUnavailable("Groq rate limit reached. Please wait a few seconds and try again.") from e
+            raise LLMUnavailable(f"Groq error ({e.status_code}): {detail}") from e
+        except (APIConnectionError, APITimeoutError) as e:
+            raise LLMUnavailable("Cannot reach Groq right now. Check your internet connection.") from e
+    raise LLMUnavailable("Groq request failed.")
 
 
 # ---------------------------------------------------------------- extraction
