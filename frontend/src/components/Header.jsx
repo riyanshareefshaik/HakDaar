@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Globe } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, Globe } from 'lucide-react'
 import { LANGS } from '../i18n'
 import Logo from './Logo'
 
@@ -28,6 +28,12 @@ export default function Header({ s, language, onLanguage, worker, alertCount = 0
         <span className="font-display text-xl text-white">HakDaar</span>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Always a visible way back to the landing page (the logo links there too) */}
+          <a href="/landing/" title={s.home}
+            className="flex h-11 items-center gap-1.5 rounded-full border border-line-strong bg-pill px-3.5 text-[14.5px] font-medium text-fg2 transition hover:bg-pill-hover hover:text-white">
+            <ArrowLeft className="size-4" />
+            <span className="hidden min-[480px]:inline">{s.home}</span>
+          </a>
           {onLanguage && <LanguageMenu language={language} onChange={onLanguage} />}
           {worker && (
             <button onClick={onAccount} title={s.account}
