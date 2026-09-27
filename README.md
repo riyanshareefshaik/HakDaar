@@ -236,6 +236,7 @@ backend/
   app/db.py        SQLite schema and queries
   tests/           ledger + end-to-end API tests (Groq and Hindsight mocked)
 frontend/
+  public/brand/hakdaar-mark.png    brand emblem (from the HakDaar logo, text removed, transparent background)
   public/landing/                  static landing page: index.html, styles.css, main.js, assets/logo.webp,
                                    fonts/GeistPixel-Circle.woff2 (SIL OFL, from the official `geist` package)
   src/App.jsx                      session, layout (chat + ledger on desktop, tabs on mobile), live-learning polling

@@ -13,31 +13,19 @@ export function Avatar({ name, size = 'size-8' }) {
 }
 
 /**
- * Same header as the landing page: round white logo, a white nav pill with a three-dot active marker,
- * and dark pills for language and account.
+ * Same header as the landing page: round white logo and wordmark, dark pills for language and account.
+ * (Chat and ledger are both on screen, and Memories / Alerts live in the account panel, so no nav is needed.)
  */
-export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount, nav = [] }) {
+export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount }) {
   return (
     <header className="relative z-20 shrink-0 px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="mx-auto flex max-w-[1400px] items-center gap-3 sm:gap-5">
         <a href="/landing/" title="HakDaar home"
           className="grid size-11 shrink-0 place-items-center rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.16)] transition hover:scale-[1.04]">
-          <Logo size={30} tone="dark" />
+          <Logo size={34} />
         </a>
 
-        {nav.length > 0 ? (
-          <nav className="hidden h-11 flex-1 items-center justify-around rounded-full bg-white px-2 md:flex md:max-w-[460px]" aria-label="Main">
-            {nav.map((n) => (
-              <button key={n.id} onClick={n.onClick} aria-current={n.active ? 'page' : undefined}
-                className={`relative px-3 pb-2.5 pt-2 text-[14.5px] font-medium tracking-[-0.01em] text-[#2e2e2e] transition ${n.active ? 'dot-active opacity-100' : 'opacity-50 hover:opacity-75'}`}>
-                {n.label}
-                {n.badge > 0 && <span className="absolute -right-0.5 top-0.5 grid size-4 place-items-center rounded-full bg-owed text-[10px] font-bold text-white">{n.badge}</span>}
-              </button>
-            ))}
-          </nav>
-        ) : (
-          <span className="font-display text-xl text-white">HakDaar</span>
-        )}
+        <span className="font-display text-xl text-white">HakDaar</span>
 
         <div className="ml-auto flex items-center gap-2">
           {onLanguage && <LanguageMenu language={language} onChange={onLanguage} />}

@@ -344,12 +344,6 @@ export default function App() {
     )
   }
 
-  const nav = [
-    { id: 'chat', label: s.chat, active: tab === 'chat' && !drawer.open, onClick: () => { setTab('chat'); setDrawer((d) => ({ ...d, open: false })) } },
-    { id: 'ledger', label: s.ledgerTab, active: tab === 'ledger' && !drawer.open, onClick: () => { setTab('ledger'); setDrawer((d) => ({ ...d, open: false })) } },
-    { id: 'memory', label: s.memories, active: drawer.open && drawer.section === 'memories', onClick: () => openDrawer('memories') },
-    { id: 'alerts', label: s.alertsShort, active: drawer.open && drawer.section === 'alerts', onClick: () => openDrawer('alerts'), badge: repAlerts },
-  ]
   const tabs = [
     { id: 'chat', label: s.chat, icon: MessagesSquare, onClick: () => setTab('chat') },
     { id: 'ledger', label: s.ledgerTab, icon: WalletIcon, onClick: () => setTab('ledger'), dot: totals.amount_owed > 0 },
@@ -364,7 +358,7 @@ export default function App() {
       </video>
       <div className="pointer-events-none absolute inset-0 bg-black/60" aria-hidden="true" />
 
-      <Header s={s} language={language} onLanguage={changeLanguage} nav={nav}
+      <Header s={s} language={language} onLanguage={changeLanguage}
         worker={worker} alertCount={repAlerts} onAccount={() => openDrawer(repAlerts ? 'alerts' : 'memories')} />
       {degraded}
 
