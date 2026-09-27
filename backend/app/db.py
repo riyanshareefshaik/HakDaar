@@ -261,6 +261,11 @@ def employer_names_for_worker(worker_id: str) -> list[str]:
         return [r["employer_name"] for r in rows]
 
 
+def rename_employer(worker_id: str, old: str, new: str) -> None:
+    with connect() as conn:
+        conn.execute("UPDATE events SET employer_name = ? WHERE worker_id = ? AND employer_name = ?", (new, worker_id, old))
+
+
 def all_employer_names() -> list[str]:
     with connect() as conn:
         rows = conn.execute(

@@ -351,7 +351,47 @@ def test_reply_that_does_its_own_maths_is_rewritten(client, fake, monkeypatch):
     assert "50,000" not in r["reply"] and corrections[1] and "50000" in corrections[1]
 
     async def stubborn(**kw):
-        return "That means ₹50,000 is still owed."
+        return "That means ₹70,000 is still owed."
     monkeypatch.setattr(llm, "write_reply", stubborn)
-    r = say(client, fake, w, message="10000")
-    assert "50,000" not in r["reply"]
+    r = say(client, fake, w, message="how much is owed?")
+    assert "70,000" not in r["reply"]
+
+
+def test_facts_without_employer_name_still_count(client, fake):
+    """'5 days' before any employer is named used to be dropped, so Earned/Paid/Owed stayed at ₹0."""
+    w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
+    r = say(client, fake, w, ExtractedEvent(type="work_day", days=5), message="I worked 5 days")
+    assert r["ledger"][0]["employer_name"] == "Employer (name not given)"
+    assert "ask them the employer's name" in fake.replies[-1]["noted_text"]
+    r = say(client, fake, w, ExtractedEvent(type="promise", amount=1000), message="1000 per day")
+    assert r["ledger"][0]["amount_earned"] == 5000
+    # Naming the employer moves the earlier facts over; nothing is double counted.
+    r = say(client, fake, w, ExtractedEvent(type="payment", employer_name="Rakesh", amount=2000),
+            message="Rakesh gave me 2000")
+    assert [row["employer_name"] for row in r["ledger"]] == ["Rakesh"]
+    totals = client.get(f"/workers/{w}/ledger").json()["totals"]
+    assert totals == {"amount_earned": 5000, "amount_paid": 2000, "amount_owed": 3000}
+    # The placeholder never becomes a shared "employer" with a reputation.
+    assert client.get("/employers/Employer (name not given)/reputation").json()["stats"]["workers_reporting_problems"] == 0
+
+
+def test_employer_inferred_from_conversation(client, fake):
+    """'5 days' right after talking about a known employer is booked to that employer."""
+    other = client.post("/workers", json={"name": "Ravi", "language": "en"}).json()["id"]
+    say(client, fake, other, ExtractedEvent(type="promise", employer_name="Rakesh Builders", amount=700))
+    w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
+    say(client, fake, w, message="I work for Rakesh")
+    r = say(client, fake, w, ExtractedEvent(type="work_day", days=5), message="5 days")
+    assert r["ledger"][0]["employer_name"] == "Rakesh Builders"
+
+
+def test_short_answers_read_when_ai_finds_nothing(client, fake, monkeypatch):
+    """The Santosh chat: HakDaar asks for the daily rate, the worker answers just '10000'."""
+    w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="work_day", employer_name="Rakesh", days=5), message="I worked 5 days for Rakesh")
+    monkeypatch.setattr("app.chat.db.list_messages", lambda wid, limit=6, **k: [
+        {"role": "user", "content": "I worked 5 days for Rakesh"},
+        {"role": "assistant", "content": "What daily rate did Rakesh promise for each day?"}])
+    r = say(client, fake, w, message="10000")  # the AI returned no events
+    row = r["ledger"][0]
+    assert (row["employer_name"], row["rate_per_day"], row["amount_owed"]) == ("Rakesh", 10000, 50000)

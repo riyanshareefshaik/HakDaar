@@ -45,16 +45,41 @@ def canonical_employer(name: str | None, known: list[str]) -> str | None:
 
 # ---------------------------------------------------------------- events -> ledger rows
 
-def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str) -> tuple[list[dict], list[dict]]:
+# Facts are never thrown away just because the worker hasn't named the employer yet ("5 days",
+# "he gave 2000"). They are booked under this placeholder and moved to the real employer as soon
+# as the worker names one (see claim_unnamed).
+UNNAMED = "Employer (name not given)"
+
+
+def employer_from_history(history: list[dict] | None, candidates: list[str]) -> str | None:
+    """The employer most recently mentioned in the conversation, if it's one we already know."""
+    for m in reversed(history or []):
+        text = _norm(m.get("content") or "")
+        for k in candidates:
+            if k != UNNAMED and (_norm(k) in text or _norm(k).split()[0] in text.split()):
+                return k
+    return None
+
+
+def claim_unnamed(worker_id: str, stored: list[dict]) -> str | None:
+    """Once the worker names an employer, move facts booked under the placeholder to that employer."""
+    named = next((e["employer_name"] for e in stored if e["employer_name"] != UNNAMED), None)
+    if not named or UNNAMED not in db.employer_names_for_worker(worker_id):
+        return None
+    db.rename_employer(worker_id, UNNAMED, named)
+    return named
+
+def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str,
+                     history: list[dict] | None = None) -> tuple[list[dict], list[dict]]:
     """Turn raw extracted facts into rows to store. Returns (rows_to_store, other_notes).
 
     'is_total' and 'pays_full_balance' are resolved here in Python against the current ledger.
     """
     known = db.employer_names_for_worker(worker_id)
     # Worker-wide employers + employers other workers mentioned, to help spelling match.
-    candidates = known + [n for n in db.all_employer_names() if n not in known]
+    candidates = [n for n in known + [n for n in db.all_employer_names() if n not in known] if n != UNNAMED]
     stored_events = db.list_events(worker_id)
-    last_employer = known[0] if known else None
+    last_employer = known[0] if known else employer_from_history(history, candidates)
 
     rows, others = [], []
     for ev in extracted:
@@ -62,13 +87,15 @@ def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str) -> tup
         # resolve against up-to-date numbers.
         current = {r["employer_name"]: r for r in ledger.summarize(stored_events + rows)}
         employer = canonical_employer(ev.employer_name, candidates) or last_employer
-        base = {"employer_name": employer, "date": ev.date or date.today().isoformat(), "notes": ev.notes}
-
-        if ev.type == "other" or employer is None:
-            # Can't book money without knowing who it's from; keep it as a note for the reply.
-            others.append({**base, "type": "other", "amount": ev.amount, "days": ev.days,
-                           "needs_employer": ev.type != "other"})
+        if ev.type == "other":
+            others.append({"employer_name": employer, "date": ev.date or date.today().isoformat(),
+                           "type": "other", "notes": ev.notes, "amount": ev.amount, "days": ev.days})
             continue
+        if employer is None or employer == UNNAMED:
+            # Book it anyway so the numbers are right; the reply asks who the employer is.
+            employer = UNNAMED
+            others.append({"type": "other", "needs_employer": True})
+        base = {"employer_name": employer, "date": ev.date or date.today().isoformat(), "notes": ev.notes}
 
         cur = current.get(employer, {})
         if ev.type == "promise":
@@ -104,6 +131,8 @@ def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str) -> tup
 # ---------------------------------------------------------------- alerts & reputation
 
 def reputation_alert(employer: str, worker_id: str) -> dict | None:
+    if employer == UNNAMED:
+        return None
     stats = db.employer_report_stats(employer, exclude_worker_id=worker_id)
     n = stats["workers_reporting_problems"]
     if n == 0:
@@ -185,7 +214,7 @@ def record_reputation(worker_id: str, current_ledger: list[dict], paid_employers
     also be retained into the shared Hindsight bank."""
     to_retain = []
     for row in current_ledger:
-        if row["employer_name"] not in paid_employers or row["status"] == "unknown_rate":
+        if row["employer_name"] not in paid_employers or row["status"] == "unknown_rate" or row["employer_name"] == UNNAMED:
             continue
         kind = "short_payment" if (row["amount_owed"] or 0) > 0 else "paid_ok"
         summary = anonymised_report(row, kind)
@@ -234,7 +263,7 @@ def noted_text(stored: list[dict], others: list[dict]) -> str:
             lines.append(f"- received {ledger.format_inr(e['amount'])} from {e['employer_name']}")
     for o in others:
         if o.get("needs_employer"):
-            lines.append("- the worker mentioned work or money but did not say which employer; ask them")
+            lines.append("- the worker did not say which employer this is for; it is saved for now, so ask them the employer's name")
         elif o.get("notes"):
             lines.append(f"- note: {o['notes']}")
     return "\n".join(lines) or "(nothing new to record)"
@@ -284,6 +313,34 @@ def fallback_reply(stored: list[dict], alerts: list[dict]) -> str:
     return " ".join(parts)
 
 
+# ---------------------------------------------------------------- safety net for short answers
+
+_NUM = r"(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:/-|rs|rupees?|rupaye|రూపాయలు)?"
+_DAYS = r"(\d+(?:\.\d+)?)\s*(?:days?|din|dino|దినాలు|రోజులు|రోజు|दिन)"
+
+
+def quick_facts(message: str, history: list[dict]) -> list[llm.ExtractedEvent]:
+    """If the AI found nothing in a short reply like '10000' or '5 days', read it in Python using
+    the question HakDaar just asked. Only exact forms are accepted; anything else is left alone."""
+    import re
+    text = message.strip().lower()
+    m = re.fullmatch(_DAYS, text)
+    if m:
+        return [llm.ExtractedEvent(type="work_day", days=float(m.group(1)))]
+    m = re.fullmatch(_NUM, text)
+    if not m:
+        return []
+    value = float(m.group(1).replace(",", ""))
+    asked = next((h["content"].lower() for h in reversed(history) if h["role"] == "assistant"), "")
+    if re.search(r"rate|per day|daily|each day|a day|promise|wage", asked):
+        return [llm.ExtractedEvent(type="promise", amount=value)]
+    if re.search(r"how many days|days did you|days have you", asked):
+        return [llm.ExtractedEvent(type="work_day", days=value)]
+    if re.search(r"paid|payment|receive|give you|gave you", asked):
+        return [llm.ExtractedEvent(type="payment", amount=value)]
+    return []
+
+
 # ---------------------------------------------------------------- main entrypoint
 
 async def handle_message(worker: dict, message: str) -> dict:
@@ -296,17 +353,27 @@ async def handle_message(worker: dict, message: str) -> dict:
     # 1. Extract structured facts. If Groq is down this raises LLMUnavailable -> 503 upstream,
     #    before we store anything, so a retry doesn't double-count.
     extracted = await llm.extract_events(message, db.employer_names_for_worker(worker_id), history=history)
-    rows, others = to_ledger_events(extracted, worker_id)
+    if not any(e.type != "other" for e in extracted):
+        extra = quick_facts(message, history)
+        if extra:
+            log.warning("AI found no facts in %r; read it directly as %s", message[:80], [e.type for e in extra])
+            extracted = extra
+    log.info("Extracted %d fact(s) from %r: %s", len(extracted), message[:80],
+             [e.model_dump(exclude_defaults=True) for e in extracted])
+    rows, others = to_ledger_events(extracted, worker_id, history)
 
     # 2. Store message + events in SQLite and compute the exact ledger.
     msg_id = db.add_message(worker_id, "user", message)
     stored = [db.add_event(worker_id, r, message_id=msg_id) for r in rows]
+    claimed = claim_unnamed(worker_id, stored)
+    if claimed:
+        others.append({"type": "other", "notes": f"earlier facts with no employer name were moved to {claimed}"})
     current_ledger = ledger.summarize(db.list_events(worker_id))
 
     touched = {e["employer_name"] for e in stored}
     paid = {e["employer_name"] for e in stored if e["type"] == "payment"}
     reports = record_reputation(worker_id, current_ledger, paid)
-    for employer in {r["employer_name"] for r in rows if r.get("late")}:
+    for employer in {r["employer_name"] for r in rows if r.get("late")} - {UNNAMED}:
         summary = f"A worker reported that {employer} paid their wages late, after a delay."
         if not db.has_report(employer, worker_id, "late_payment"):
             db.add_employer_report(employer, worker_id, "late_payment", 0, summary)

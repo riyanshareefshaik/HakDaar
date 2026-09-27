@@ -20,10 +20,17 @@ export default function Header({ s, language, onLanguage, worker, alertCount = 0
   return (
     <header className="relative z-20 shrink-0 px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="mx-auto flex max-w-[1400px] items-center gap-3 sm:gap-5">
-        <a href="/landing/" title="HakDaar home"
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong bg-black shadow-[0_4px_14px_rgba(0,0,0,0.16)] transition hover:scale-[1.04]">
-          <Logo size={34} />
-        </a>
+        {/* Signed in, the logo is just the logo: it must not drop the worker out to the public homepage. */}
+        {worker ? (
+          <span className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong bg-black">
+            <Logo size={34} />
+          </span>
+        ) : (
+          <a href="/landing/" title="HakDaar home"
+            className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong bg-black shadow-[0_4px_14px_rgba(0,0,0,0.16)] transition hover:scale-[1.04]">
+            <Logo size={34} />
+          </a>
+        )}
 
         <span className="font-display text-xl text-white">HakDaar</span>
 

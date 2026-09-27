@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, LogOut, Phone, RefreshCw, Trash2, X } from 'lucide-react'
 import { Avatar } from './Header'
-import { AlertsCard, MemoriesCard } from './LedgerPanel'
+import { AlertsCard, HowCalculated, MemoriesCard } from './LedgerPanel'
 
 /** Slide-over "My account": profile, what HakDaar has learned, employer warnings, connections, log out. */
 export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck, onOpenLegal }) {
@@ -45,6 +45,7 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
           {tab === 'memories' ? <MemoriesCard s={s} {...memoryProps} /> : <AlertsCard s={s} alerts={alerts} loading={false} />}
         </div>
 
+        <HowCalculated s={s} />
         <Connections s={s} health={health} onRecheck={onRecheck} />
 
         <div className="space-y-2 border-t border-line p-5">

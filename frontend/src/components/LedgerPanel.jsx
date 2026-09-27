@@ -6,12 +6,11 @@ import {
 import { api, inr } from '../api'
 import { useCountUp } from '../hooks'
 
-/** Right column: the wage ledger (the numbers) and how they are calculated. */
+/** Right column: the wage ledger. (How the numbers are calculated lives in My account.) */
 export default function LedgerPanel({ s, ledger, loading, onUndo }) {
   return (
     <div className="h-full overflow-y-auto scroll-thin p-5 sm:p-6">
       <LedgerCard s={s} ledger={ledger} loading={loading} onUndo={onUndo} />
-      <HowCalculated s={s} />
     </div>
   )
 }
@@ -145,10 +144,10 @@ function Stat({ label, value }) {
   )
 }
 
-function HowCalculated({ s }) {
+export function HowCalculated({ s }) {
   const [open, setOpen] = useState(false)
   return (
-    <section className="mt-6 border-t border-line pt-4">
+    <section className="border-t border-line px-5 py-4">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 text-left text-[15px] font-medium text-fg2 hover:text-white">
         {s.howCalc}
         <ChevronDown className={`size-4 text-muted transition ${open ? 'rotate-180' : ''}`} />

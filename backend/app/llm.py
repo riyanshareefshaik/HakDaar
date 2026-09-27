@@ -213,7 +213,10 @@ Rules:
 - other: anything else relevant (complaints, delays, threats, questions). One "other" event is enough; do not create events for greetings.
 - NEVER calculate anything. Copy numbers exactly as the worker said them. Convert words like "teen hazaar"/"మూడు వేలు" to 3000.
 - employer_name: reuse the exact spelling from KNOWN EMPLOYERS when it is clearly the same employer (e.g. "Suresh" -> "Suresh Constructions").
-  If the worker doesn't name the employer, use null.
+  If the NEW MESSAGE doesn't name the employer but RECENT CONVERSATION makes clear who it is, use that name.
+  Only if nobody is named anywhere, use null (the fact is still recorded).
+- A bare number or short answer ("10000", "5 days", "yes 2000") is a real fact: use RECENT CONVERSATION to decide
+  whether it is a rate, days worked or a payment. Never drop it just because it is short.
 - Resolve relative dates ("yesterday", "last Monday") against today. Unknown date -> null.
 - A question like "how much does Suresh owe me?" is NOT a payment or work_day. Return an "other" event or an empty list.
 

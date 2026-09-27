@@ -2,6 +2,22 @@
 ;(function () {
   'use strict'
 
+  // ---------------------------------------------------------------- background video
+  // Some browsers (Low Power Mode, data saver) block autoplay; start it on the first touch instead.
+  var video = document.querySelector('.bg-video')
+  if (video) {
+    video.muted = true
+    var start = function () {
+      var p = video.play()
+      if (p && p.catch) p.catch(function () {})
+    }
+    start()
+    ;['pointerdown', 'touchstart', 'keydown', 'scroll'].forEach(function (ev) {
+      window.addEventListener(ev, start, { once: true, passive: true })
+    })
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) start() })
+  }
+
   // ---------------------------------------------------------------- mobile menu
   var burger = document.querySelector('.burger')
   var menu = document.getElementById('mobile-menu')
