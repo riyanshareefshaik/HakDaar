@@ -73,6 +73,16 @@ cd frontend && npm install && npm run dev
 
 ---
 
+## Built for workers who can't read easily
+- **Ravi's story:** a 5-step picture story (with read-aloud) opens on first visit and from the ▶ button.
+- **HakDaar speaks first:** on login a *welcome-back* message is written from Hindsight memory plus exact
+  **follow-up nudges** ("Suresh Constructions still owes you ₹1,200 · 5 days since the last update. Did they pay?")
+  with big **✅ Yes, paid / ❌ Not yet** answers.
+- **No typing needed:** big colour-coded picture buttons open a keypad (amounts), a +/− stepper (days) and employer
+  chips. The sheet writes a plain sentence in the worker's language and sends it like any chat message.
+- **Voice both ways:** a big WhatsApp-style mic (Groq Whisper), and replies read aloud automatically
+  (speaker toggle), with amounts spoken as words in English, Hindi or Telugu.
+
 ## Walkthrough (2 minutes, all live, no seeded data)
 
 1. **Lakshmi** creates an account (हिंदी) and chats: *"सुरेश कंस्ट्रक्शन्स ने रोज़ ₹650 का वादा किया"* → *"10 दिन काम किया"* →
@@ -142,6 +152,7 @@ flowchart LR
 | `retain` | every chat turn → `worker-{id}` | Long-term personal memory: promises, dates, worries, context |
 | `retain` | after a payment → `employer-reputation` | Cross-worker learning, anonymised (no names ever stored) |
 | `retain` | after an undo → `worker-{id}` | A correction note so memory stays consistent with the ledger |
+| `recall` | login → `worker-{id}` | The welcome-back greeting mentions what the worker told HakDaar last time |
 | `recall` | every chat turn, both banks | Context for the reply, shown live in *Memories → Used in last reply* |
 | `list_memories` | `GET /workers/{id}/memories` | *Memories → All learned*: every fact Hindsight has extracted, newest first. The UI polls it after each message to show learning live |
 | `reflect` | `GET /employers/{name}/reputation` | A reasoned summary of an employer's payment record |
@@ -188,6 +199,8 @@ workers. SQLite holds the *numbers*. Money needs exact arithmetic, and memory ne
 | GET | `/workers/{id}/events` | Every ledger entry |
 | DELETE | `/workers/{id}/events/{event_id}` | Undo a wrong entry → recomputed ledger + correction retained |
 | POST | `/transcribe` | Voice input: multipart `audio` + `language` → `{text}` (Groq Whisper) |
+| GET | `/workers/{id}/welcome` | Welcome-back greeting (LLM + Hindsight recall) + follow-up nudges |
+| GET | `/workers/{id}/nudges` | Follow-up nudges only (exact, from the ledger: money owed + days since, missing rate) |
 | GET | `/workers/{id}/ledger` | Per employer: rate promised, days worked, earned, paid, **owed** |
 | GET | `/workers/{id}/memories` | Hindsight recall + everything learned (`learned`, `total_learned`) |
 | GET | `/workers/{id}/alerts` | Current underpayment and reputation alerts |

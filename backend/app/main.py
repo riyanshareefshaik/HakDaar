@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import chat, db, ledger, llm, memory
+from . import chat, db, ledger, llm, memory, nudges
 from .config import settings
 from .health import check_groq, check_hindsight
 
@@ -235,6 +235,17 @@ async def transcribe(audio: UploadFile = File(...), language: Literal["en", "te"
         raise HTTPException(413, "The recording is too long. Please keep it under a few minutes.")
     text = await llm.transcribe(data, audio.filename or "speech.webm", language)
     return {"text": text}
+
+
+@app.get("/workers/{worker_id}/welcome")
+async def get_welcome(worker_id: str):
+    """Welcome-back greeting (LLM + Hindsight recall) and follow-up nudges (exact, from the ledger)."""
+    return await nudges.welcome(_worker_or_404(worker_id))
+
+
+@app.get("/workers/{worker_id}/nudges")
+def get_nudges(worker_id: str):
+    return nudges.compute_nudges(_worker_or_404(worker_id)["id"])
 
 
 @app.get("/workers/{worker_id}/ledger")

@@ -298,6 +298,12 @@ WHAT OTHER WORKERS HAVE REPORTED about these employers (anonymous):
 """
 
 
+async def complete(system_prompt: str, max_tokens: int = 300, temperature: float = 0.5) -> str:
+    """One-shot text generation (used for the welcome-back greeting)."""
+    return (await _chat([{"role": "system", "content": system_prompt}], json_mode=False,
+                        temperature=temperature, max_tokens=max_tokens)).strip()
+
+
 async def write_reply(*, worker_name: str, language: str, message: str, history: list[dict],
                       ledger_text: str, noted_text: str, alerts_text: str,
                       memories_text: str, reputation_text: str) -> str:

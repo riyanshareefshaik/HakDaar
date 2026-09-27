@@ -257,3 +257,26 @@ def test_transcribe(client, fake, monkeypatch):
     assert r.status_code == 200 and r.json()["text"] == "ఈ రోజు పని చేశాను"
     assert seen == {"size": 6, "filename": "speech.webm", "language": "te"}
     assert client.post("/transcribe", files={"audio": ("a.webm", b"", "audio/webm")}).status_code == 400
+
+
+def test_welcome_and_nudges(client, fake, monkeypatch):
+    w = client.post("/workers", json={"name": "Ravi", "language": "te"}).json()["id"]
+    first = client.get(f"/workers/{w}/welcome").json()
+    assert first["has_history"] is False and first["greeting"] is None and first["nudges"] == []
+
+    say(client, fake, w, ExtractedEvent(type="work_day", employer_name="Kiran Builders", days=2))
+    assert client.get(f"/workers/{w}/nudges").json()[0]["type"] == "missing_rate"
+    say(client, fake, w, ExtractedEvent(type="promise", amount=700))
+    say(client, fake, w, ExtractedEvent(type="work_day", days=4))
+    say(client, fake, w, ExtractedEvent(type="payment", amount=3000, notes="said he will pay the rest later"))
+
+    prompts = []
+
+    async def fake_complete(prompt, max_tokens=300, temperature=0.5):
+        prompts.append(prompt)
+        return "Welcome back Ravi!"
+    monkeypatch.setattr(llm, "complete", fake_complete)
+    r = client.get(f"/workers/{w}/welcome").json()
+    n = r["nudges"][0]
+    assert (n["type"], n["employer_name"], n["amount_owed"], n["promised_later"]) == ("owed", "Kiran Builders", 1200, True)
+    assert r["greeting"] == "Welcome back Ravi!" and "owes ₹1,200" in prompts[0] and "Telugu" in prompts[0]

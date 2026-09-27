@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CircleAlert, Info, Loader2, MessagesSquare, RefreshCw, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
+import { CircleAlert, CirclePlay, Info, Loader2, MessagesSquare, RefreshCw, UserRound, Volume2, VolumeX, Wallet as WalletIcon, WifiOff } from 'lucide-react'
 import { ApiError, api, inr } from './api'
 import { t } from './i18n'
 import { useCountUp } from './hooks'
@@ -8,6 +8,7 @@ import ChatPanel from './components/ChatPanel'
 import LedgerPanel from './components/LedgerPanel'
 import Login from './components/Login'
 import AccountDrawer from './components/AccountDrawer'
+import StoryIntro from './components/StoryIntro'
 
 const LEDGER_TYPES = new Set(['promise', 'work_day', 'payment'])
 // Hindsight extracts facts in the background after retain; re-check a few times to show learning live.
@@ -44,6 +45,11 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [tab, setTab] = useState('chat')
   const [drawer, setDrawer] = useState({ open: false, section: 'memories' })
+  const [welcome, setWelcome] = useState(null)
+  const [welcomeLoading, setWelcomeLoading] = useState(false)
+  const [welcomeAt, setWelcomeAt] = useState(0) // the welcome card sits after the history loaded at login
+  const [autoRead, setAutoRead] = useState(() => readStored('hakdaar.autoread') !== 'off')
+  const [storyOpen, setStoryOpen] = useState(() => !readStored('hakdaar.storySeen'))
 
   const pollTimers = useRef([])
   const learnedRef = useRef(EMPTY_LEARNED)
@@ -118,9 +124,17 @@ export default function App() {
     stopPolling()
     setLoadingWorker(true)
     setBanner(null); setLearning(null); setNewIds(new Set()); setRecalled([]); setLearned(EMPTY_LEARNED); setMemoryError(null)
+    setWelcome(null)
+    setWelcomeLoading(true)
+    // HakDaar speaks first: greeting from memory + follow-up nudges (loads in parallel with the chat).
+    api.welcome(id)
+      .then(setWelcome)
+      .catch(() => setWelcome({ greeting: null, nudges: [], has_history: false }))
+      .finally(() => setWelcomeLoading(false))
     try {
       const [msgs, led, al] = await Promise.all([api.messages(id), api.ledger(id), api.alerts(id)])
       setMessages(msgs)
+      setWelcomeAt(msgs.length)
       setLedger(led)
       setAlerts(al)
     } catch (e) {
@@ -187,7 +201,7 @@ export default function App() {
         const copy = [...m]
         const i = copy.findLastIndex((x) => x.pending)
         if (i >= 0) copy[i] = { ...copy[i], pending: false, events }
-        return [...copy, { role: 'assistant', content: r.reply, warnings: r.warnings, created_at: new Date().toISOString() }]
+        return [...copy, { role: 'assistant', content: r.reply, warnings: r.warnings, created_at: new Date().toISOString(), fresh: true }]
       })
       setAlerts(r.alerts)
       setRecalled(r.recalled_memories)
@@ -195,6 +209,7 @@ export default function App() {
       setMemoryError(memWarn || null)
       setBanner(r.alerts.find((a) => a.type === 'underpayment') || null)
       api.ledger(id).then(setLedger).catch(() => {})
+      refreshNudges(id)
       if (!memWarn) watchLearning(id)
     } catch (e) {
       setMessages((m) => [...m.filter((x) => !x.pending), { role: 'error', content: e.message, retry: text }])
@@ -202,6 +217,12 @@ export default function App() {
       setSending(false)
     }
   }
+
+  const refreshNudges = (id) =>
+    api.nudges(id).then((n) => setWelcome((w) => (w ? { ...w, nudges: n } : w))).catch(() => {})
+
+  const toggleAutoRead = () => setAutoRead((v) => { writeStored('hakdaar.autoread', v ? 'off' : 'on'); return !v })
+  const closeStory = () => { writeStored('hakdaar.storySeen', '1'); setStoryOpen(false) }
 
   const retry = (text) => {
     setMessages((m) => m.filter((x) => x.retry !== text))
@@ -217,6 +238,7 @@ export default function App() {
         : m)))
       const al = await api.alerts(worker.id)
       setAlerts(al)
+      refreshNudges(worker.id)
       setBanner((b) => (b ? al.find((a) => a.type === 'underpayment' && a.employer_name === b.employer_name) || null : null))
       if (r.warning) showToast(r.warning, 'error')
     } catch (e) {
@@ -273,7 +295,16 @@ export default function App() {
       <div className="flex h-dvh flex-col">
         <Header s={s} health={health} />
         {degraded}
-        <div className="flex-1 overflow-y-auto"><Login onLogin={login} onRegister={register} lang={uiLang} onLang={(c) => { setUiLang(c); writeStored('hakdaar.lang', c) }} /></div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-md px-4 pt-4">
+            <button onClick={() => setStoryOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-100 py-3 text-lg font-bold text-amber-900 shadow-soft transition hover:bg-amber-200">
+              <CirclePlay className="size-6" /> {s.seeStory}
+            </button>
+          </div>
+          <Login onLogin={login} onRegister={register} lang={uiLang} onLang={(c) => { setUiLang(c); writeStored('hakdaar.lang', c) }} />
+        </div>
+        <StoryIntro s={s} language={uiLang} open={storyOpen} onClose={closeStory} />
         <footer className="border-t border-black/5 px-4 py-2 text-center text-xs text-muted"><Info className="mr-1 inline size-3.5 align-[-2px]" />{s.footer}</footer>
       </div>
     )
@@ -301,6 +332,16 @@ export default function App() {
                 🧠 {s.allLearned}: {learned.total}
               </button>
             </div>
+            <div className="flex items-center gap-1.5">
+              <button onClick={toggleAutoRead} title={s.autoRead} aria-pressed={autoRead}
+                className={`grid size-10 place-items-center rounded-xl transition ${autoRead ? 'bg-brand text-white' : 'bg-sand text-muted'}`}>
+                {autoRead ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+              </button>
+              <button onClick={() => setStoryOpen(true)} title={s.help}
+                className="grid size-10 place-items-center rounded-xl bg-amber-100 text-amber-800 transition hover:bg-amber-200">
+                <CirclePlay className="size-5" />
+              </button>
+            </div>
             <Wallet s={s} totals={totals} onClick={() => setTab('ledger')} />
           </div>
           <div className="min-h-0 flex-1">
@@ -308,6 +349,8 @@ export default function App() {
               s={s} worker={worker} language={language} messages={messages} sending={sending} loading={loadingWorker}
               onSend={send} onRetry={retry} onUndo={undo} banner={banner} onDismissBanner={() => setBanner(null)}
               learning={learning} onOpenMemory={() => openDrawer('memories')}
+              welcome={welcome} welcomeLoading={welcomeLoading} welcomeAt={welcomeAt} autoRead={autoRead}
+              employers={(ledger?.employers || []).map((r) => r.employer_name)}
             />
           </div>
         </section>
@@ -332,6 +375,8 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      <StoryIntro s={s} language={language} open={storyOpen} onClose={closeStory} />
 
       <AccountDrawer
         s={s} open={drawer.open} section={drawer.section} onClose={() => setDrawer((d) => ({ ...d, open: false }))}

@@ -1,23 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import {
-  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, CircleAlert, CircleHelp, Loader2, MessageCircleHeart,
+  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, CircleAlert, CircleHelp, Loader2,
   Mic, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, VolumeX, X,
 } from 'lucide-react'
 import { inr } from '../api'
 import { LANGS } from '../i18n'
 import { api } from '../api'
 import { canRecord, canSpeak, speak, stopSpeaking, useRecorder } from '../hooks'
+import WelcomeCard from './WelcomeCard'
+import QuickEntrySheet from './QuickEntrySheet'
 
 
+// Big, colour-coded picture buttons: recognisable without reading.
 const QUICK = [
-  { key: 'promise', icon: BriefcaseBusiness },
-  { key: 'worked', icon: CalendarCheck },
-  { key: 'paid', icon: Banknote },
-  { key: 'owed', icon: CircleHelp, sendNow: true },
+  { key: 'promise', icon: BriefcaseBusiness, tone: 'bg-sky-50 text-sky-800 ring-sky-200' },
+  { key: 'worked', icon: CalendarCheck, tone: 'bg-amber-50 text-amber-800 ring-amber-200' },
+  { key: 'paid', icon: Banknote, tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
+  { key: 'owed', icon: CircleHelp, sendNow: true, tone: 'bg-rose-50 text-rose-800 ring-rose-200' },
 ]
 
-export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory }) {
+export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory,
+  welcome, welcomeLoading, welcomeAt = 0, autoRead, employers = [] }) {
   const [text, setText] = useState('')
+  const [sheet, setSheet] = useState({ mode: null, employer: null })
   const [voice, setVoice] = useState({ busy: false, error: null })
   const recorder = useRecorder({ maxSeconds: 60 })
   const recording = recorder.state === 'recording'
@@ -39,14 +44,10 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
     setText('')
   }
 
+  // Picture buttons: "owed" asks straight away; the others open the no-typing entry sheet.
   const quick = (q) => {
-    const tpl = s.templates[q.key]
-    if (q.sendNow) return send(tpl)
-    setText(tpl)
-    requestAnimationFrame(() => {
-      const el = inputRef.current
-      if (el) { el.focus(); el.setSelectionRange(tpl.length, tpl.length) }
-    })
+    if (q.sendNow) return send(s.templates[q.key])
+    setSheet({ mode: q.key, employer: null })
   }
 
   // Voice: record in the browser, transcribe with Groq Whisper on the backend, put the text in the box.
@@ -78,6 +79,11 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   }
 
   const lastAssistant = messages.findLastIndex((m) => m.role === 'assistant')
+  // A plain element (not a nested component) so it isn't remounted, and doesn't re-speak, on every render.
+  const welcomeEl = (
+    <WelcomeCard key="welcome" s={s} worker={worker} language={language} speechTag={speechTag} welcome={welcome} loading={welcomeLoading}
+      autoRead={autoRead} onReply={(t) => send(t)} onTellRate={(e) => setSheet({ mode: 'promise', employer: e })} />
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -103,20 +109,16 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
               <div key={i} className={`h-14 animate-pulse rounded-2xl bg-sand ${i % 2 ? 'ml-auto' : ''}`} style={{ width: `${w}%` }} />
             ))}
           </div>
-        ) : messages.length === 0 ? (
-          <div className="mx-auto mt-6 max-w-md text-center animate-fade-up">
-            <div className="mx-auto mb-3 grid size-16 place-items-center rounded-full bg-brand-soft">
-              <MessageCircleHeart className="size-8 text-brand" />
-            </div>
-            <p className="text-xl font-bold">{s.emptyChatTitle}</p>
-            <p className="mt-1 text-muted">{s.emptyChatBody}</p>
-          </div>
         ) : (
           <ul className="mx-auto max-w-3xl space-y-4">
             {messages.map((m, i) => (
-              <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag} language={language} onOpenMemory={onOpenMemory}
-                showLearning={i === lastAssistant && !sending ? learning : null} />
+              <Fragment key={m.id ?? `local-${i}`}>
+                {i === welcomeAt && welcomeEl}
+                <Bubble m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag} language={language} onOpenMemory={onOpenMemory}
+                  showLearning={i === lastAssistant && !sending ? learning : null} autoSpeak={autoRead && m.fresh && i === lastAssistant} />
+              </Fragment>
             ))}
+            {welcomeAt >= messages.length && welcomeEl}
             {sending && (
               <li className="flex items-center gap-2 text-muted animate-fade-up">
                 <span className="flex gap-1 rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-soft">
@@ -134,13 +136,13 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
 
       <div className="border-t border-black/5 bg-cream/95 px-4 pb-3 pt-2 backdrop-blur">
         <div className="mx-auto max-w-3xl">
-          <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto" lang={language}>
+          <div className="mb-2 grid grid-cols-4 gap-2" lang={language}>
             {QUICK.map((q) => {
               const Icon = q.icon
               return (
-                <button key={q.key} onClick={() => quick(q)} disabled={sending}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand/20 bg-white px-3 py-1.5 text-sm font-medium text-brand shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-soft disabled:opacity-50">
-                  <Icon className="size-4" /> {s.quick[q.key]}
+                <button key={q.key} onClick={() => quick(q)} disabled={sending || recording}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-xs font-bold leading-tight shadow-sm ring-1 transition hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 sm:text-sm ${q.tone}`}>
+                  <Icon className="size-6" /> <span className="line-clamp-2 text-center">{s.quick[q.key]}</span>
                 </button>
               )
             })}
@@ -175,28 +177,37 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
                   className="max-h-36 min-h-[3.25rem] flex-1 resize-none bg-transparent px-4 py-3 text-lg outline-none placeholder:text-muted/70"
                   style={{ fieldSizing: 'content' }}
                 />
-                {canRecord && (
-                  <button type="button" onClick={startRecording} disabled={voice.busy || sending} aria-label={s.mic} title={s.mic}
-                    className="m-1.5 grid size-11 shrink-0 place-items-center rounded-xl text-brand transition hover:bg-brand-soft disabled:opacity-60">
-                    {voice.busy ? <Loader2 className="size-6 animate-spin" /> : <Mic className="size-6" />}
-                  </button>
-                )}
               </div>
-              <button type="submit" disabled={!text.trim() || sending || voice.busy} aria-label={s.send}
-                className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-soft transition hover:bg-brand-dark active:scale-95 disabled:opacity-40">
-                <SendHorizontal className="size-6" />
-              </button>
+              {/* Like WhatsApp: a big mic when the box is empty, the send arrow once there is text. */}
+              {canRecord && !text.trim() ? (
+                <button type="button" onClick={startRecording} disabled={voice.busy || sending} aria-label={s.mic} title={s.mic}
+                  className="grid size-14 shrink-0 place-items-center rounded-full bg-brand text-white shadow-soft ring-4 ring-brand/15 transition hover:bg-brand-dark active:scale-95 disabled:opacity-60">
+                  {voice.busy ? <Loader2 className="size-7 animate-spin" /> : <Mic className="size-7" />}
+                </button>
+              ) : (
+                <button type="submit" disabled={!text.trim() || sending || voice.busy} aria-label={s.send}
+                  className="grid size-14 shrink-0 place-items-center rounded-full bg-brand text-white shadow-soft ring-4 ring-brand/15 transition hover:bg-brand-dark active:scale-95 disabled:opacity-40">
+                  <SendHorizontal className="size-6" />
+                </button>
+              )}
             </form>
           )}
         </div>
       </div>
+      <QuickEntrySheet s={s} mode={sheet.mode} employers={employers} defaultEmployer={sheet.employer}
+        onClose={() => setSheet({ mode: null, employer: null })}
+        onSubmit={(t) => { setSheet({ mode: null, employer: null }); send(t) }} />
     </div>
   )
 }
 
-function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOpenMemory }) {
+function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOpenMemory, autoSpeak }) {
   const [speaking, setSpeaking] = useState(false)
   const [voiceNote, setVoiceNote] = useState(null)
+  const spoke = useRef(false)
+  useEffect(() => {
+    if (autoSpeak && !spoke.current) { spoke.current = true; listen() }
+  }, [autoSpeak]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (m.role === 'error') {
     return (
