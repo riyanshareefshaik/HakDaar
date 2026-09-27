@@ -1,12 +1,13 @@
 """HakDaar API — FastAPI entrypoint."""
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import chat, db, ledger, llm, memory, nudges
@@ -14,6 +15,7 @@ from .config import settings
 from .health import check_groq, check_hindsight
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("hakdaar.api")
 
 
 @asynccontextmanager
@@ -270,9 +272,45 @@ async def delete_event(worker_id: str, event_id: int):
 
 
 @app.post("/chat")
-async def post_chat(body: ChatIn):
+async def post_chat(body: ChatIn, stream: bool = False):
+    """With ?stream=true the answer is NDJSON in two parts: {"stage": "recorded", ledger, ...} as soon
+    as the facts are saved (so the wallet updates instantly), then {"stage": "done", ...the full reply}."""
     worker = _worker_or_404(body.worker_id)
-    return await chat.handle_message(worker, body.message.strip())
+    if not stream:
+        return await chat.handle_message(worker, body.message.strip())
+
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def recorded(events, alerts):
+        await queue.put({"stage": "recorded", "extracted_events": events, "alerts": alerts,
+                         "ledger": _ledger_payload(worker["id"])})
+
+    async def run():
+        try:
+            result = await chat.handle_message(worker, body.message.strip(), on_recorded=recorded)
+            await queue.put({"stage": "done", **result})
+        except Exception as e:  # noqa: BLE001 - reported to the client below
+            await queue.put(e)
+
+    task = asyncio.create_task(run())
+    first = await queue.get()
+    if isinstance(first, Exception):
+        raise first  # nothing saved yet: normal error response (503 if Groq is down)
+
+    async def lines():
+        item = first
+        while True:
+            if isinstance(item, Exception):
+                log.exception("chat failed after recording", exc_info=item)
+                yield json.dumps({"stage": "error", "detail": str(item) or "Something went wrong."}) + "\n"
+                break
+            yield json.dumps(item, default=str) + "\n"
+            if item["stage"] == "done":
+                break
+            item = await queue.get()
+        await task
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson")
 
 
 def _ledger_payload(worker_id: str, rows: list[dict] | None = None) -> dict:

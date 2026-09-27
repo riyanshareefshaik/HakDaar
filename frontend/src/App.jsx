@@ -211,14 +211,21 @@ export default function App() {
     setMessages((m) => [...m, { role: 'user', content: text, created_at: new Date().toISOString(), pending: true }])
     setSending(true)
     try {
-      const r = await api.chat(id, text)
-      const events = r.extracted_events.filter((e) => LEDGER_TYPES.has(e.type) && e.id)
-      setMessages((m) => {
+      // The wallet, ledger and "Noted" chips update the moment the facts are saved;
+      // the written reply follows a few seconds later.
+      const markNoted = (evs) => setMessages((m) => {
         const copy = [...m]
         const i = copy.findLastIndex((x) => x.pending)
-        if (i >= 0) copy[i] = { ...copy[i], pending: false, events }
-        return [...copy, { role: 'assistant', content: r.reply, warnings: r.warnings, created_at: new Date().toISOString(), fresh: true }]
+        if (i >= 0) copy[i] = { ...copy[i], pending: false, events: evs.filter((e) => LEDGER_TYPES.has(e.type) && e.id) }
+        return copy
       })
+      const r = await api.chat(id, text, (p) => {
+        setLedger(p.ledger)
+        setAlerts(p.alerts)
+        markNoted(p.extracted_events)
+      })
+      markNoted(r.extracted_events)
+      setMessages((m) => [...m, { role: 'assistant', content: r.reply, warnings: r.warnings, created_at: new Date().toISOString(), fresh: true }])
       setAlerts(r.alerts)
       setRecalled(r.recalled_memories)
       const memWarn = r.warnings?.find((w) => w.startsWith('Memory'))

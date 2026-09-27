@@ -343,7 +343,9 @@ def quick_facts(message: str, history: list[dict]) -> list[llm.ExtractedEvent]:
 
 # ---------------------------------------------------------------- main entrypoint
 
-async def handle_message(worker: dict, message: str) -> dict:
+async def handle_message(worker: dict, message: str, on_recorded=None) -> dict:
+    """on_recorded(stored_and_notes, alerts) is awaited as soon as the facts are saved, before memory
+    and the reply, so the app can update Earned / Paid / Owed while the reply is still being written."""
     worker_id = worker["id"]
     bank = memory.worker_bank(worker_id)
     warnings: list[str] = []
@@ -379,6 +381,8 @@ async def handle_message(worker: dict, message: str) -> dict:
             db.add_employer_report(employer, worker_id, "late_payment", 0, summary)
         reports.append((employer, "late_payment", summary))
     alerts = build_alerts(worker_id, current_ledger, touched)
+    if on_recorded:
+        await on_recorded(stored + others, alerts)
 
     # 3. Memory: retain this turn, recall from the worker's bank + shared reputation bank.
     now = datetime.now(timezone.utc)

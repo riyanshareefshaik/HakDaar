@@ -395,3 +395,26 @@ def test_short_answers_read_when_ai_finds_nothing(client, fake, monkeypatch):
     r = say(client, fake, w, message="10000")  # the AI returned no events
     row = r["ledger"][0]
     assert (row["employer_name"], row["rate_per_day"], row["amount_owed"]) == ("Rakesh", 10000, 50000)
+
+
+def test_streamed_chat_sends_ledger_before_the_reply(client, fake):
+    """The wallet must update as soon as facts are saved, not after the reply is written."""
+    import json
+    w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="promise", employer_name="Rakesh", amount=10000))
+    fake.next_events = [ExtractedEvent(type="work_day", days=5)]
+    r = client.post("/chat?stream=true", json={"worker_id": w, "message": "5 days"})
+    assert r.status_code == 200
+    parts = [json.loads(line) for line in r.text.splitlines()]
+    assert [p["stage"] for p in parts] == ["recorded", "done"]
+    assert parts[0]["ledger"]["totals"] == {"amount_earned": 50000, "amount_paid": 0, "amount_owed": 50000}
+    assert parts[0]["extracted_events"][0]["days"] == 5 and parts[1]["reply"] == "reply"
+
+
+def test_streamed_chat_error_before_saving_is_a_normal_error(client, fake, monkeypatch):
+    async def down(*a, **k):
+        raise llm.LLMUnavailable("Groq is down (test)")
+    monkeypatch.setattr(llm, "extract_events", down)
+    w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
+    r = client.post("/chat?stream=true", json={"worker_id": w, "message": "5 days"})
+    assert r.status_code == 503 and client.get(f"/workers/{w}/messages").json() == []
