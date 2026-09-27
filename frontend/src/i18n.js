@@ -160,6 +160,12 @@ const EXTRA = {
     exactNote: 'Calculated exactly by HakDaar, never guessed by the AI.',
     fixed: 'Fixed / bonus', entryFixed: 'Agreed fixed',
     alertsCount: (n) => `${n} warning${n === 1 ? '' : 's'}`,
+    recording: 'Listening… tap ■ when you finish', transcribing: 'Turning your voice into text…',
+    micDenied: 'Microphone is blocked. Click the lock icon in the address bar, allow Microphone, then try again.',
+    micMissing: 'No microphone found on this device.', micFailed: 'Could not start the microphone.',
+    heardNothing: 'I could not hear anything. Please speak a little louder and try again.',
+    stopReading: 'Stop',
+    noVoice: (l) => `This device has no ${l} voice for reading aloud. On Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → add ${l}.`,
   },
   te: {
     login: 'లాగిన్', createAccount: 'ఖాతా తెరవండి', phone: 'ఫోన్ నంబర్', pin: '4 అంకెల PIN',
@@ -176,6 +182,12 @@ const EXTRA = {
     exactNote: 'HakDaar సరిగ్గా లెక్కిస్తుంది, AI ఊహించదు.',
     fixed: 'స్థిర / బోనస్', entryFixed: 'ఒప్పుకున్న మొత్తం',
     alertsCount: (n) => `${n} హెచ్చరికలు`,
+    recording: 'వింటున్నాను… అయిపోయాక ■ నొక్కండి', transcribing: 'మీ మాటను అక్షరాలుగా మారుస్తోంది…',
+    micDenied: 'మైక్రోఫోన్ బ్లాక్ అయింది. అడ్రస్ బార్‌లోని తాళం గుర్తు నొక్కి, మైక్రోఫోన్ అనుమతించండి.',
+    micMissing: 'ఈ పరికరంలో మైక్రోఫోన్ లేదు.', micFailed: 'మైక్రోఫోన్ ప్రారంభం కాలేదు.',
+    heardNothing: 'ఏమీ వినిపించలేదు. కొంచెం గట్టిగా మాట్లాడి మళ్ళీ ప్రయత్నించండి.',
+    stopReading: 'ఆపు',
+    noVoice: () => 'ఈ పరికరంలో తెలుగు చదివే గొంతు లేదు. Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Telugu జోడించండి.',
   },
   hi: {
     login: 'लॉग इन', createAccount: 'खाता बनाएँ', phone: 'फ़ोन नंबर', pin: '4 अंकों का PIN',
@@ -192,6 +204,12 @@ const EXTRA = {
     exactNote: 'HakDaar ठीक-ठीक गिनता है, AI अंदाज़ा नहीं लगाता।',
     fixed: 'तय / बोनस', entryFixed: 'तय रकम',
     alertsCount: (n) => `${n} चेतावनी`,
+    recording: 'सुन रहा हूँ… बोलने के बाद ■ दबाएँ', transcribing: 'आपकी आवाज़ को शब्दों में बदल रहा है…',
+    micDenied: 'माइक्रोफ़ोन बंद है। एड्रेस बार में ताले के निशान पर क्लिक करके माइक्रोफ़ोन की अनुमति दें।',
+    micMissing: 'इस डिवाइस पर माइक्रोफ़ोन नहीं मिला।', micFailed: 'माइक्रोफ़ोन शुरू नहीं हो सका।',
+    heardNothing: 'कुछ सुनाई नहीं दिया। थोड़ा ज़ोर से बोलकर फिर कोशिश करें।',
+    stopReading: 'रोकें',
+    noVoice: () => 'इस डिवाइस पर हिंदी पढ़ने वाली आवाज़ नहीं है। Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Hindi जोड़ें।',
   },
 }
 

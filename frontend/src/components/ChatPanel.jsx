@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, CircleAlert, CircleHelp, Loader2, MessageCircleHeart,
-  Mic, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, X,
+  Mic, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, VolumeX, X,
 } from 'lucide-react'
 import { inr } from '../api'
 import { LANGS } from '../i18n'
-import { canSpeak, speak } from '../hooks'
+import { api } from '../api'
+import { canRecord, canSpeak, speak, stopSpeaking, useRecorder } from '../hooks'
 
-const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
 const QUICK = [
   { key: 'promise', icon: BriefcaseBusiness },
@@ -18,9 +18,10 @@ const QUICK = [
 
 export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory }) {
   const [text, setText] = useState('')
-  const [listening, setListening] = useState(false)
+  const [voice, setVoice] = useState({ busy: false, error: null })
+  const recorder = useRecorder({ maxSeconds: 60 })
+  const recording = recorder.state === 'recording'
   const endRef = useRef(null)
-  const recRef = useRef(null)
   const inputRef = useRef(null)
   const speechTag = LANGS.find((l) => l.code === language)?.speech || 'en-IN'
 
@@ -28,13 +29,12 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, sending])
 
-  // Stop listening/speaking if the worker or language changes.
-  useEffect(() => () => { recRef.current?.abort(); if (canSpeak) window.speechSynthesis.cancel() }, [worker?.id, language])
+  // Stop recording/speaking if the worker or language changes.
+  useEffect(() => () => { recorder.cancel(); stopSpeaking() }, [worker?.id, language]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = (msg = text) => {
     const m = msg.trim()
     if (!m || sending) return
-    recRef.current?.stop()
     onSend(m)
     setText('')
   }
@@ -49,19 +49,32 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
     })
   }
 
-  const toggleMic = () => {
-    if (listening) { recRef.current?.stop(); return }
-    const rec = new SpeechRecognition()
-    rec.lang = speechTag
-    rec.interimResults = true
-    rec.continuous = false
-    const base = text ? text.trim() + ' ' : ''
-    rec.onresult = (e) => setText(base + Array.from(e.results).map((r) => r[0].transcript).join(''))
-    rec.onend = () => { setListening(false); inputRef.current?.focus() }
-    rec.onerror = () => setListening(false)
-    recRef.current = rec
-    setListening(true)
-    rec.start()
+  // Voice: record in the browser, transcribe with Groq Whisper on the backend, put the text in the box.
+  const startRecording = async () => {
+    setVoice({ busy: false, error: null })
+    stopSpeaking()
+    try {
+      await recorder.start()
+    } catch (e) {
+      const error = e?.name === 'NotAllowedError' || e?.name === 'SecurityError' ? s.micDenied
+        : e?.name === 'NotFoundError' ? s.micMissing : s.micFailed
+      setVoice({ busy: false, error })
+    }
+  }
+
+  const finishRecording = async () => {
+    const blob = await recorder.stop()
+    if (!blob || blob.size < 1200) { setVoice({ busy: false, error: s.heardNothing }); return }
+    setVoice({ busy: true, error: null })
+    try {
+      const said = await api.transcribe(blob, language)
+      if (!said) { setVoice({ busy: false, error: s.heardNothing }); return }
+      setText((t) => (t.trim() ? `${t.trim()} ${said}` : said))
+      setVoice({ busy: false, error: null })
+      requestAnimationFrame(() => inputRef.current?.focus())
+    } catch (e) {
+      setVoice({ busy: false, error: e.message })
+    }
   }
 
   const lastAssistant = messages.findLastIndex((m) => m.role === 'assistant')
@@ -101,7 +114,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
         ) : (
           <ul className="mx-auto max-w-3xl space-y-4">
             {messages.map((m, i) => (
-              <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag} onOpenMemory={onOpenMemory}
+              <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag} language={language} onOpenMemory={onOpenMemory}
                 showLearning={i === lastAssistant && !sending ? learning : null} />
             ))}
             {sending && (
@@ -132,36 +145,58 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
               )
             })}
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
-            <div className={`flex flex-1 items-end rounded-2xl border bg-white shadow-soft transition ${listening ? 'border-danger ring-2 ring-danger/20' : 'border-black/10 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20'}`}>
-              <textarea
-                ref={inputRef} rows={1} value={text} lang={language}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                placeholder={listening ? s.listening : s.placeholder}
-                className="max-h-36 min-h-[3.25rem] flex-1 resize-none bg-transparent px-4 py-3 text-lg outline-none placeholder:text-muted/70"
-                style={{ fieldSizing: 'content' }}
-              />
-              {SpeechRecognition && (
-                <button type="button" onClick={toggleMic} aria-label={s.mic} title={s.mic}
-                  className={`m-1.5 grid size-11 shrink-0 place-items-center rounded-xl transition ${listening ? 'bg-danger text-white animate-pulse-ring' : 'text-brand hover:bg-brand-soft'}`}>
-                  {listening ? <Square className="size-5 fill-current" /> : <Mic className="size-6" />}
-                </button>
-              )}
+          {voice.error && (
+            <p className="mb-2 flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger animate-fade-up" role="alert">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" /> <span className="flex-1">{voice.error}</span>
+              <button onClick={() => setVoice({ busy: false, error: null })} aria-label={s.close}><X className="size-4" /></button>
+            </p>
+          )}
+          {recording ? (
+            <div className="flex items-center gap-2" role="status">
+              <div className="flex h-[3.25rem] flex-1 items-center gap-3 rounded-2xl border border-danger/40 bg-danger-soft px-4">
+                <span className="relative flex size-3"><span className="absolute inline-flex size-full animate-ping rounded-full bg-danger opacity-60" /><span className="relative inline-flex size-3 rounded-full bg-danger" /></span>
+                <span className="font-mono font-bold tabular-nums text-danger">0:{String(recorder.seconds).padStart(2, '0')}</span>
+                <Bars />
+                <span className="hidden truncate text-sm text-danger/80 sm:block">{s.recording}</span>
+              </div>
+              <button type="button" onClick={() => recorder.cancel()} aria-label={s.cancel}
+                className="grid size-[3.25rem] place-items-center rounded-2xl bg-white text-muted shadow-soft hover:text-ink"><X className="size-6" /></button>
+              <button type="button" onClick={finishRecording} aria-label={s.stopReading}
+                className="grid size-[3.25rem] place-items-center rounded-2xl bg-danger text-white shadow-soft animate-pulse-ring"><Square className="size-5 fill-current" /></button>
             </div>
-            <button type="submit" disabled={!text.trim() || sending} aria-label={s.send}
-              className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-soft transition hover:bg-brand-dark active:scale-95 disabled:opacity-40">
-              <SendHorizontal className="size-6" />
-            </button>
-          </form>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
+              <div className="flex flex-1 items-end rounded-2xl border border-black/10 bg-white shadow-soft transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
+                <textarea
+                  ref={inputRef} rows={1} value={text} lang={language} disabled={voice.busy}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                  placeholder={voice.busy ? s.transcribing : s.placeholder}
+                  className="max-h-36 min-h-[3.25rem] flex-1 resize-none bg-transparent px-4 py-3 text-lg outline-none placeholder:text-muted/70"
+                  style={{ fieldSizing: 'content' }}
+                />
+                {canRecord && (
+                  <button type="button" onClick={startRecording} disabled={voice.busy || sending} aria-label={s.mic} title={s.mic}
+                    className="m-1.5 grid size-11 shrink-0 place-items-center rounded-xl text-brand transition hover:bg-brand-soft disabled:opacity-60">
+                    {voice.busy ? <Loader2 className="size-6 animate-spin" /> : <Mic className="size-6" />}
+                  </button>
+                )}
+              </div>
+              <button type="submit" disabled={!text.trim() || sending || voice.busy} aria-label={s.send}
+                className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-soft transition hover:bg-brand-dark active:scale-95 disabled:opacity-40">
+                <SendHorizontal className="size-6" />
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning, onOpenMemory }) {
+function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOpenMemory }) {
   const [speaking, setSpeaking] = useState(false)
+  const [voiceNote, setVoiceNote] = useState(null)
 
   if (m.role === 'error') {
     return (
@@ -182,10 +217,15 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning, onOpenMemory }
   const mine = m.role === 'user'
   const events = (m.events || []).filter((e) => ['promise', 'work_day', 'payment'].includes(e.type))
 
-  const listen = () => {
-    if (speak(m.content, speechTag)) {
-      setSpeaking(true)
-      setTimeout(() => setSpeaking(false), Math.min(15000, 400 + m.content.length * 70))
+  const listen = async () => {
+    if (speaking) { stopSpeaking(); setSpeaking(false); return }
+    setVoiceNote(null)
+    setSpeaking(true)
+    const result = await speak(m.content, speechTag, language, { onEnd: () => setSpeaking(false) })
+    if (result !== 'ok') {
+      setSpeaking(false)
+      const name = LANGS.find((l) => l.code === language)?.native || language
+      setVoiceNote(s.noVoice(name))
     }
   }
 
@@ -203,6 +243,7 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning, onOpenMemory }
         </div>
       )}
 
+      {voiceNote && <p className="mt-1 max-w-[85%] rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn">{voiceNote}</p>}
       {m.warnings?.map((w) => (
         <p key={w} className="mt-1 flex items-center gap-1 text-xs text-warn"><AlertTriangle className="size-3.5" /> {w}</p>
       ))}
@@ -213,7 +254,7 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning, onOpenMemory }
         )}
         {!mine && canSpeak && (
           <button onClick={listen} className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold transition ${speaking ? 'bg-brand text-white' : 'text-brand hover:bg-brand-soft'}`}>
-            <Volume2 className="size-3.5" /> {s.listen}
+            {speaking ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />} {speaking ? s.stopReading : s.listen}
           </button>
         )}
         {showLearning === 'pending' && (
@@ -248,6 +289,17 @@ function EventChip({ e, s, onUndo }) {
         className="grid size-6 place-items-center rounded-full text-brand/70 transition hover:bg-white hover:text-danger">
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
       </button>
+    </span>
+  )
+}
+
+/** Little animated equaliser shown while recording. */
+function Bars() {
+  return (
+    <span className="flex h-5 items-end gap-0.5" aria-hidden>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className="w-1 rounded-full bg-danger/70 eq-bar" style={{ animationDelay: `${i * 0.12}s` }} />
+      ))}
     </span>
   )
 }

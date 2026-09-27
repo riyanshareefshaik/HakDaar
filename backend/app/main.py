@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -220,6 +220,21 @@ def _ledger_payload(worker_id: str, rows: list[dict] | None = None) -> dict:
     for r in rows:
         r["entries"] = [e for e in events if e["employer_name"] == r["employer_name"]]
     return {"worker_id": worker_id, "employers": rows, "totals": ledger.totals(rows)}
+
+
+MAX_AUDIO_BYTES = 10 * 1024 * 1024  # ~10 minutes of compressed speech; Groq's limit is 25 MB
+
+
+@app.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...), language: Literal["en", "te", "hi"] | None = Form(None)):
+    """Voice input: the browser records audio, Groq Whisper turns it into text."""
+    data = await audio.read()
+    if not data:
+        raise HTTPException(400, "The recording was empty. Please try again.")
+    if len(data) > MAX_AUDIO_BYTES:
+        raise HTTPException(413, "The recording is too long. Please keep it under a few minutes.")
+    text = await llm.transcribe(data, audio.filename or "speech.webm", language)
+    return {"text": text}
 
 
 @app.get("/workers/{worker_id}/ledger")

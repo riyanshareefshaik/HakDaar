@@ -155,6 +155,14 @@ leak one worker's memory into another's.
 **Why both SQLite and Hindsight?** Hindsight holds the *meaning*: what was said, when, and patterns across
 workers. SQLite holds the *numbers*. Money needs exact arithmetic, and memory needs understanding.
 
+### Voice
+- **Speak:** the browser records audio (MediaRecorder, works in Chrome, Safari, Edge and Firefox) and sends it to
+  `POST /transcribe`, where **Groq Whisper** (`whisper-large-v3-turbo`) turns Telugu, Hindi or English speech into
+  text. The text lands in the input box so the worker can check it before sending.
+- **Listen:** replies are read aloud with the best installed voice for the language. Amounts are converted first
+  (`₹1,25,000` → "one lakh twenty five thousand rupees" / "125000 रुपये"), because Indian digit grouping confuses
+  speech engines.
+
 ### Failure handling
 - **Groq down:** `/chat` returns a clear 503 *before* storing anything, so a retry never double-counts.
   If Groq fails after the facts are saved, a plain fallback reply is sent instead.
@@ -179,6 +187,7 @@ workers. SQLite holds the *numbers*. Money needs exact arithmetic, and memory ne
 | GET | `/workers/{id}/messages` | Chat history (each message carries the ledger entries it produced) |
 | GET | `/workers/{id}/events` | Every ledger entry |
 | DELETE | `/workers/{id}/events/{event_id}` | Undo a wrong entry → recomputed ledger + correction retained |
+| POST | `/transcribe` | Voice input: multipart `audio` + `language` → `{text}` (Groq Whisper) |
 | GET | `/workers/{id}/ledger` | Per employer: rate promised, days worked, earned, paid, **owed** |
 | GET | `/workers/{id}/memories` | Hindsight recall + everything learned (`learned`, `total_learned`) |
 | GET | `/workers/{id}/alerts` | Current underpayment and reputation alerts |
@@ -232,8 +241,9 @@ The tests mock Groq and Hindsight, so they need neither.
 - **"Learning…" but no new facts appear:** Hindsight extracts facts in the background with its own LLM
   calls. Check `docker logs hindsight` for Groq errors (e.g. rate limits).
 - **Groq 429 (rate limit):** wait a few seconds; the free tier has per-minute limits.
-- **Mic button missing:** the browser doesn't support the Web Speech API (use Chrome or Edge).
-- **Listen reads Telugu/Hindi badly:** install a Telugu/Hindi voice in your OS speech settings.
+- **Mic says "blocked":** click the lock icon in the browser address bar and allow the microphone.
+- **Listen says there is no Telugu/Hindi voice:** add one in your OS speech settings (Mac: System Settings →
+  Accessibility → Spoken Content → System voice → Manage Voices). HakDaar won't read Telugu with an English voice.
 
 ## License
 MIT

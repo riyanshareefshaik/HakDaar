@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ArrowRight, Brain, CircleAlert, Loader2, MessagesSquare, Phone, ShieldCheck } from 'lucide-react'
+import Logo from './Logo'
 import { LANGS, t } from '../i18n'
 
 const STEP_ICONS = [MessagesSquare, Brain, ShieldCheck]
@@ -40,7 +41,7 @@ export default function Login({ onLogin, onRegister, lang = 'te', onLang }) {
         <div className="relative overflow-hidden bg-brand px-6 pb-6 pt-6 text-white">
           <div className="absolute -right-10 -top-10 size-40 rounded-full bg-white/10" />
           <div className="absolute -bottom-14 right-20 size-28 rounded-full bg-white/5" />
-          <ShieldCheck className="mb-2 size-10" />
+          <Logo size={56} className="mb-2 drop-shadow" />
           <h2 className="text-2xl font-extrabold leading-tight">{s.welcome}</h2>
           <p className="mt-1 text-white/85">{s.welcomeBody}</p>
         </div>

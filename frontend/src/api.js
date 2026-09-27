@@ -34,7 +34,25 @@ async function req(path, { method = 'GET', body } = {}) {
 
 const enc = encodeURIComponent
 
+/** Voice input: upload a recording, get text back (Groq Whisper on the backend). */
+async function transcribe(blob, language) {
+  const ext = blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : 'webm'
+  const form = new FormData()
+  form.append('audio', blob, `speech.${ext}`)
+  if (language) form.append('language', language)
+  let res
+  try {
+    res = await fetch(`${BASE}/transcribe`, { method: 'POST', body: form })
+  } catch {
+    throw new ApiError('Cannot reach the HakDaar server. Is the backend running on port 8000?', 0, 'backend')
+  }
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new ApiError(data?.detail || `Voice input failed (${res.status})`, res.status, data?.service)
+  return data.text
+}
+
 export const api = {
+  transcribe,
   health: () => req('/health'),
   workers: () => req('/workers'),
   register: (body) => req('/auth/register', { method: 'POST', body }),

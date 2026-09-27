@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Globe, ShieldCheck } from 'lucide-react'
+import { Check, ChevronDown, Globe } from 'lucide-react'
+import Logo from './Logo'
 import { LANGS } from '../i18n'
 
 const AVATAR_COLORS = ['bg-emerald-600', 'bg-amber-600', 'bg-sky-700', 'bg-rose-600', 'bg-violet-600', 'bg-teal-700']
@@ -18,11 +19,9 @@ export default function Header({ s, health, language, onLanguage, worker, alertC
   return (
     <header className="bg-brand text-white">
       <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-2.5 lg:px-6">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/15">
-          <ShieldCheck className="size-6" strokeWidth={2.2} />
-        </div>
+        <Logo size={42} className="shrink-0 drop-shadow-sm" />
         <div className="min-w-0">
-          <h1 className="text-xl font-extrabold leading-tight tracking-tight">HakDaar</h1>
+          <h1 className="text-xl font-extrabold leading-tight tracking-tight">Hak<span className="text-amber-300">Daar</span></h1>
           <p className="hidden truncate text-sm leading-tight text-white/80 sm:block">{s.tagline}</p>
         </div>
 

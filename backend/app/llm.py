@@ -123,6 +123,39 @@ async def _chat(messages: list[dict], *, json_mode: bool, temperature: float, ma
     raise LLMUnavailable("Groq request failed.")
 
 
+# ---------------------------------------------------------------- speech to text
+
+WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
+_whisper_model: str | None = None
+
+
+async def transcribe(audio: bytes, filename: str, language: str | None) -> str:
+    """Groq Whisper speech-to-text. Works in every browser (unlike the Web Speech API) and
+    handles Telugu, Hindi and English."""
+    global _whisper_model
+    model = _whisper_model or WHISPER_MODELS[0]
+    for attempt in range(2):
+        try:
+            resp = await client().audio.transcriptions.create(
+                model=model, file=(filename, audio), language=language or None, temperature=0.0,
+                response_format="json",
+            )
+            _whisper_model = model
+            return (resp.text or "").strip()
+        except APIStatusError as e:
+            detail = _groq_error_text(e)
+            log.warning("Groq transcription error %s for %s: %s", e.status_code, model, detail)
+            if e.status_code == 404 and attempt == 0:
+                model = next((m for m in WHISPER_MODELS if m != model), model)
+                continue
+            if e.status_code == 429:
+                raise LLMUnavailable("Voice limit reached for now. Please wait a moment or type instead.") from e
+            raise LLMUnavailable(f"Could not understand the recording ({e.status_code}): {detail}") from e
+        except (APIConnectionError, APITimeoutError) as e:
+            raise LLMUnavailable("Cannot reach Groq right now. Please type your message instead.") from e
+    raise LLMUnavailable("Voice input is not available on this Groq account. Please type instead.")
+
+
 # ---------------------------------------------------------------- extraction
 
 class ExtractedEvent(BaseModel):

@@ -244,3 +244,16 @@ def test_fixed_total_for_days_and_context_passed(client, fake):
     assert (row["employer_name"], row["amount_earned"], row["amount_owed"], row["status"]) == ("Riyan", 50000, 50000, "owed")
     # extraction saw the earlier turns, so a bare "50000INR" can be understood
     assert any("5 days" in m["content"] for m in fake.last_history)
+
+
+def test_transcribe(client, fake, monkeypatch):
+    seen = {}
+
+    async def fake_transcribe(data, filename, language):
+        seen.update(size=len(data), filename=filename, language=language)
+        return "ఈ రోజు పని చేశాను"
+    monkeypatch.setattr(llm, "transcribe", fake_transcribe)
+    r = client.post("/transcribe", files={"audio": ("speech.webm", b"\x1a\x45fake", "audio/webm")}, data={"language": "te"})
+    assert r.status_code == 200 and r.json()["text"] == "ఈ రోజు పని చేశాను"
+    assert seen == {"size": 6, "filename": "speech.webm", "language": "te"}
+    assert client.post("/transcribe", files={"audio": ("a.webm", b"", "audio/webm")}).status_code == 400
