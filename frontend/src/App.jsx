@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CircleAlert, CirclePlay, Info, Loader2, MessagesSquare, RefreshCw, UserRound, Volume2, VolumeX, Wallet as WalletIcon, WifiOff } from 'lucide-react'
+import { CircleAlert, CirclePlay, Info, Loader2, MessagesSquare, RefreshCw, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
 import { ApiError, api, inr } from './api'
 import { t } from './i18n'
 import { useCountUp } from './hooks'
@@ -48,7 +48,6 @@ export default function App() {
   const [welcome, setWelcome] = useState(null)
   const [welcomeLoading, setWelcomeLoading] = useState(false)
   const [welcomeAt, setWelcomeAt] = useState(0) // the welcome card sits after the history loaded at login
-  const [autoRead, setAutoRead] = useState(() => readStored('hakdaar.autoread') !== 'off')
   const [storyOpen, setStoryOpen] = useState(() => !readStored('hakdaar.storySeen'))
 
   const pollTimers = useRef([])
@@ -221,7 +220,6 @@ export default function App() {
   const refreshNudges = (id) =>
     api.nudges(id).then((n) => setWelcome((w) => (w ? { ...w, nudges: n } : w))).catch(() => {})
 
-  const toggleAutoRead = () => setAutoRead((v) => { writeStored('hakdaar.autoread', v ? 'off' : 'on'); return !v })
   const closeStory = () => { writeStored('hakdaar.storySeen', '1'); setStoryOpen(false) }
 
   const retry = (text) => {
@@ -333,10 +331,6 @@ export default function App() {
               </button>
             </div>
             <div className="flex items-center gap-1.5">
-              <button onClick={toggleAutoRead} title={s.autoRead} aria-pressed={autoRead}
-                className={`grid size-10 place-items-center rounded-xl transition ${autoRead ? 'bg-brand text-white' : 'bg-sand text-muted'}`}>
-                {autoRead ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
-              </button>
               <button onClick={() => setStoryOpen(true)} title={s.help}
                 className="grid size-10 place-items-center rounded-xl bg-amber-100 text-amber-800 transition hover:bg-amber-200">
                 <CirclePlay className="size-5" />
@@ -349,7 +343,7 @@ export default function App() {
               s={s} worker={worker} language={language} messages={messages} sending={sending} loading={loadingWorker}
               onSend={send} onRetry={retry} onUndo={undo} banner={banner} onDismissBanner={() => setBanner(null)}
               learning={learning} onOpenMemory={() => openDrawer('memories')}
-              welcome={welcome} welcomeLoading={welcomeLoading} welcomeAt={welcomeAt} autoRead={autoRead}
+              welcome={welcome} welcomeLoading={welcomeLoading} welcomeAt={welcomeAt}
               employers={(ledger?.employers || []).map((r) => r.employer_name)}
             />
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { CheckCircle2, Clock, HelpCircle, Loader2, Volume2, VolumeX, XCircle } from 'lucide-react'
 import { inr } from '../api'
 import { speak, stopSpeaking } from '../hooks'
@@ -8,9 +8,8 @@ import Logo from './Logo'
  * HakDaar speaks first: a welcome-back line written from Hindsight memory + exact follow-up nudges
  * ("Suresh still owes you ₹1,200 · 5 days") with big one-tap answers.
  */
-export default function WelcomeCard({ s, worker, language, speechTag, welcome, loading, autoRead, onReply, onTellRate }) {
+export default function WelcomeCard({ s, worker, language, speechTag, welcome, loading, onReply, onTellRate }) {
   const [speaking, setSpeaking] = useState(false)
-  const spokenFor = useRef(null)
 
   const text = welcome?.greeting || (welcome?.has_history ? s.welcomeBack(worker.name) : s.welcomeNew(worker.name))
   const nudges = welcome?.nudges || []
@@ -22,14 +21,6 @@ export default function WelcomeCard({ s, worker, language, speechTag, welcome, l
     const r = await speak(`${text} ${welcome?.greeting ? '' : extra}`, speechTag, language, { onEnd: () => setSpeaking(false) })
     if (r !== 'ok') setSpeaking(false)
   }
-
-  // Speak once per login when auto-read is on (browsers may block this until the first tap).
-  useEffect(() => {
-    if (!loading && welcome && autoRead && spokenFor.current !== worker.id) {
-      spokenFor.current = worker.id
-      readAloud()
-    }
-  }, [loading, welcome, autoRead, worker.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function nudgeSentence(n) {
     if (n.type === 'missing_rate') return s.nudgeRate(n.employer_name)

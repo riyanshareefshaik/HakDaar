@@ -20,7 +20,7 @@ const QUICK = [
 ]
 
 export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory,
-  welcome, welcomeLoading, welcomeAt = 0, autoRead, employers = [] }) {
+  welcome, welcomeLoading, welcomeAt = 0, employers = [] }) {
   const [text, setText] = useState('')
   const [sheet, setSheet] = useState({ mode: null, employer: null })
   const [voice, setVoice] = useState({ busy: false, error: null })
@@ -82,7 +82,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   // A plain element (not a nested component) so it isn't remounted, and doesn't re-speak, on every render.
   const welcomeEl = (
     <WelcomeCard key="welcome" s={s} worker={worker} language={language} speechTag={speechTag} welcome={welcome} loading={welcomeLoading}
-      autoRead={autoRead} onReply={(t) => send(t)} onTellRate={(e) => setSheet({ mode: 'promise', employer: e })} />
+      onReply={(t) => send(t)} onTellRate={(e) => setSheet({ mode: 'promise', employer: e })} />
   )
 
   return (
@@ -115,7 +115,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
               <Fragment key={m.id ?? `local-${i}`}>
                 {i === welcomeAt && welcomeEl}
                 <Bubble m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag} language={language} onOpenMemory={onOpenMemory}
-                  showLearning={i === lastAssistant && !sending ? learning : null} autoSpeak={autoRead && m.fresh && i === lastAssistant} />
+                  showLearning={i === lastAssistant && !sending ? learning : null} />
               </Fragment>
             ))}
             {welcomeAt >= messages.length && welcomeEl}
@@ -154,18 +154,24 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
             </p>
           )}
           {recording ? (
-            <div className="flex items-center gap-2" role="status">
-              <div className="flex h-[3.25rem] flex-1 items-center gap-3 rounded-2xl border border-danger/40 bg-danger-soft px-4">
-                <span className="relative flex size-3"><span className="absolute inline-flex size-full animate-ping rounded-full bg-danger opacity-60" /><span className="relative inline-flex size-3 rounded-full bg-danger" /></span>
+            <>
+            <p className="mb-2 flex items-center justify-center gap-2 rounded-xl bg-danger-soft px-3 py-2 text-center font-semibold text-danger animate-fade-up" role="status">
+              <Mic className="size-5 shrink-0" /> {s.recording}
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="flex h-14 min-w-0 flex-1 items-center gap-2.5 rounded-2xl border border-danger/40 bg-danger-soft px-3">
+                <span className="relative flex size-3 shrink-0"><span className="absolute inline-flex size-full animate-ping rounded-full bg-danger opacity-60" /><span className="relative inline-flex size-3 rounded-full bg-danger" /></span>
                 <span className="font-mono font-bold tabular-nums text-danger">0:{String(recorder.seconds).padStart(2, '0')}</span>
                 <Bars />
-                <span className="hidden truncate text-sm text-danger/80 sm:block">{s.recording}</span>
               </div>
-              <button type="button" onClick={() => recorder.cancel()} aria-label={s.cancel}
-                className="grid size-[3.25rem] place-items-center rounded-2xl bg-white text-muted shadow-soft hover:text-ink"><X className="size-6" /></button>
-              <button type="button" onClick={finishRecording} aria-label={s.stopReading}
-                className="grid size-[3.25rem] place-items-center rounded-2xl bg-danger text-white shadow-soft animate-pulse-ring"><Square className="size-5 fill-current" /></button>
+              <button type="button" onClick={() => recorder.cancel()} aria-label={s.cancel} title={s.cancel}
+                className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white text-muted shadow-soft hover:text-ink"><X className="size-6" /></button>
+              <button type="button" onClick={finishRecording}
+                className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-danger px-4 text-base font-bold text-white shadow-soft animate-pulse-ring active:scale-95">
+                <Square className="size-5 fill-current" /> {s.stopRecording}
+              </button>
             </div>
+            </>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
               <div className="flex flex-1 items-end rounded-2xl border border-black/10 bg-white shadow-soft transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
@@ -201,13 +207,9 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   )
 }
 
-function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOpenMemory, autoSpeak }) {
+function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOpenMemory }) {
   const [speaking, setSpeaking] = useState(false)
   const [voiceNote, setVoiceNote] = useState(null)
-  const spoke = useRef(false)
-  useEffect(() => {
-    if (autoSpeak && !spoke.current) { spoke.current = true; listen() }
-  }, [autoSpeak]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (m.role === 'error') {
     return (
