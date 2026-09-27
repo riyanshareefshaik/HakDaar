@@ -259,7 +259,7 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
       ) : (
         <div className="max-w-[92%] sm:max-w-[80%]">
           <p className="mb-1.5 flex items-center gap-2 text-[12px] text-muted">
-            <span className="grid size-6 place-items-center rounded-full bg-white"><Logo size={20} /></span> HakDaar
+            <span className="grid size-6 place-items-center rounded-full border border-line-strong bg-black"><Logo size={20} /></span> HakDaar
           </p>
           <p className="whitespace-pre-wrap rounded-[22px] rounded-tl-md border border-white/10 bg-white/[0.06] px-4 py-3 text-[16px] leading-relaxed text-fg backdrop-blur-md">{m.content}</p>
         </div>

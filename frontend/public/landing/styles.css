@@ -112,7 +112,8 @@ a {
   width: clamp(40px, 4.4vw, 46px);
   height: clamp(40px, 4.4vw, 46px);
   border-radius: 50%;
-  background: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: var(--nav-shadow);
   transition: transform 0.25s var(--ease);
 }

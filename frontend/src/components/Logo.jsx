@@ -1,6 +1,6 @@
 /**
  * HakDaar emblem: the worker, the wage record and the shield (from the brand logo, text removed).
- * It is a detailed colour mark, so it is always placed on a white circle (see Header, replies, welcome card).
+ * Shown on a black circle with a thin light border, matching the logo button on the landing page.
  */
 export default function Logo({ size = 40, className = '' }) {
   return (
