@@ -239,22 +239,74 @@ async def extract_events(message: str, known_employers: list[str],
         turns = "\n".join(f"{'Worker' if m['role'] == 'user' else 'HakDaar'}: {m['content'][:400]}"
                           for m in history[-6:])
         prompt += CONTEXT_BLOCK.format(turns=turns)
-    raw = await _chat(
-        [{"role": "system", "content": prompt}, {"role": "user", "content": f"NEW MESSAGE: {message}"}],
-        json_mode=True, temperature=0.0, max_tokens=800,
-    )
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        log.warning("Extraction returned invalid JSON: %r", raw[:300])
-        return []
+    msgs = [{"role": "system", "content": prompt}, {"role": "user", "content": f"NEW MESSAGE: {message}"}]
+    raw = await _chat(msgs, json_mode=True, temperature=0.0, max_tokens=800)
+    items = _parse_events_json(raw)
+    if items is None:
+        # Some models return prose or an empty body in JSON mode; ask once more without it.
+        log.warning("Extraction returned unusable JSON, retrying: %r", raw[:300])
+        raw = await _chat(msgs + [{"role": "user", "content": "Reply with the JSON object only."}],
+                          json_mode=False, temperature=0.0, max_tokens=800)
+        items = _parse_events_json(raw)
+        if items is None:
+            log.warning("Extraction failed twice: %r", raw[:300])
+            return []
     events = []
-    for item in data.get("events", []) if isinstance(data, dict) else []:
+    for item in items:
         try:
-            events.append(ExtractedEvent.model_validate(item))
+            events.append(ExtractedEvent.model_validate(_clean_event(item)))
         except ValidationError as e:
             log.warning("Dropping invalid event %r: %s", item, e)
     return events
+
+
+_TYPE_ALIASES = {
+    "promise": "promise", "wage_promise": "promise", "rate": "promise", "daily_rate": "promise", "agreement": "promise",
+    "work_day": "work_day", "workday": "work_day", "work_days": "work_day", "work": "work_day", "worked": "work_day",
+    "days_worked": "work_day", "attendance": "work_day",
+    "payment": "payment", "paid": "payment", "pay": "payment", "received": "payment", "wage_payment": "payment",
+    "other": "other", "note": "other", "question": "other",
+}
+
+
+def _parse_events_json(raw: str) -> list | None:
+    """Accept {"events": [...]}, a bare list, a single event object, or JSON wrapped in ``` fences.
+    Returns None if nothing usable could be parsed."""
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        text = text[text.find("{") if "{" in text else 0:]
+    for candidate in (text, text[text.find("{"): text.rfind("}") + 1] if "{" in text else ""):
+        if not candidate:
+            continue
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, list):
+            return [d for d in data if isinstance(d, dict)]
+        if isinstance(data, dict):
+            for key in ("events", "facts", "items"):
+                if isinstance(data.get(key), list):
+                    return [d for d in data[key] if isinstance(d, dict)]
+            if "type" in data:
+                return [data]
+            return []
+    return None
+
+
+def _clean_event(item: dict) -> dict:
+    """Models often send null for fields that don't apply, or 'Work_Day' instead of 'work_day'.
+    Treat null as 'not set' and normalise names, so a real fact is never thrown away."""
+    item = {k: v for k, v in item.items() if v is not None and v != ""}
+    t = str(item.get("type", "other")).strip().lower().replace(" ", "_").replace("-", "_")
+    item["type"] = _TYPE_ALIASES.get(t, "other")
+    basis = str(item.get("basis", "day")).strip().lower()
+    item["basis"] = "fixed" if basis in ("fixed", "total", "lump_sum", "lumpsum", "bonus") else "day"
+    for flag in ("is_total", "pays_full_balance", "is_late"):
+        if flag in item and not isinstance(item[flag], bool):
+            item[flag] = str(item[flag]).strip().lower() in ("true", "yes", "1")
+    return item
 
 
 # ---------------------------------------------------------------- reply
@@ -306,7 +358,7 @@ async def complete(system_prompt: str, max_tokens: int = 300, temperature: float
 
 async def write_reply(*, worker_name: str, language: str, message: str, history: list[dict],
                       ledger_text: str, noted_text: str, alerts_text: str,
-                      memories_text: str, reputation_text: str) -> str:
+                      memories_text: str, reputation_text: str, correction: str | None = None) -> str:
     system = REPLY_PROMPT.format(
         name=worker_name, language=LANGUAGES.get(language, "English"),
         ledger=ledger_text, noted=noted_text, alerts=alerts_text,
@@ -317,4 +369,6 @@ async def write_reply(*, worker_name: str, language: str, message: str, history:
     for m in history[-6:]:
         msgs.append({"role": m["role"], "content": m["content"]})
     msgs.append({"role": "user", "content": message})
-    return (await _chat(msgs, json_mode=False, temperature=0.4, max_tokens=400)).strip()
+    if correction:
+        msgs.append({"role": "system", "content": correction})
+    return (await _chat(msgs, json_mode=False, temperature=0.2 if correction else 0.4, max_tokens=400)).strip()

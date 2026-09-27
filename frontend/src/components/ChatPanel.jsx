@@ -132,7 +132,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
             {welcomeAt >= messages.length && welcomeEl}
             {sending && (
               <li className="flex items-center gap-3 text-muted animate-fade">
-                <span className="flex gap-1 rounded-full border border-line bg-card px-4 py-3">
+                <span className="flex gap-1 rounded-full border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-md">
                   <span className="typing-dot size-1.5 rounded-full bg-white" />
                   <span className="typing-dot size-1.5 rounded-full bg-white" />
                   <span className="typing-dot size-1.5 rounded-full bg-white" />
@@ -261,7 +261,7 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
           <p className="mb-1.5 flex items-center gap-2 text-[12px] text-muted">
             <span className="grid size-5 place-items-center rounded-full bg-white"><Logo size={14} tone="dark" /></span> HakDaar
           </p>
-          <p className="whitespace-pre-wrap rounded-[22px] rounded-tl-md border border-line bg-card px-4 py-3 text-[16px] leading-relaxed text-fg">{m.content}</p>
+          <p className="whitespace-pre-wrap rounded-[22px] rounded-tl-md border border-white/10 bg-white/[0.06] px-4 py-3 text-[16px] leading-relaxed text-fg backdrop-blur-md">{m.content}</p>
         </div>
       )}
 

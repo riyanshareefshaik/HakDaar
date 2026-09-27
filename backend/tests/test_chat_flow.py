@@ -325,3 +325,33 @@ def test_greeting_with_invented_numbers_is_dropped(client, fake, monkeypatch):
         return "Welcome back, Parker! You got the ₹5,555 payment yesterday, right?"
     monkeypatch.setattr(llm, "complete", lying)
     assert client.get(f"/workers/{w}/welcome").json()["greeting"] is None
+
+
+def test_extraction_tolerates_nulls_and_odd_names():
+    from app.llm import ExtractedEvent, _clean_event, _parse_events_json
+    items = _parse_events_json('{"events": [{"type": "Work_Day", "employer_name": "Rakesh", "days": 5, "is_total": null, '
+                               '"basis": null, "is_late": null, "pays_full_balance": null, "date": null}]}')
+    ev = ExtractedEvent.model_validate(_clean_event(items[0]))
+    assert (ev.type, ev.employer_name, ev.days, ev.is_total, ev.basis) == ("work_day", "Rakesh", 5, False, "day")
+    assert _parse_events_json("not json") is None
+
+
+def test_reply_that_does_its_own_maths_is_rewritten(client, fake, monkeypatch):
+    w = client.post("/workers", json={"name": "Santosh", "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="work_day", employer_name="Rakesh", days=5), message="5 days for Rakesh")
+    drafts = ["You worked 5 days at ₹10,000 each. That means ₹50,000 is still owed.",
+              "What daily rate did Rakesh promise you?"]
+    corrections = []
+
+    async def reply(**kw):
+        corrections.append(kw.get("correction"))
+        return drafts[len(corrections) - 1]
+    monkeypatch.setattr(llm, "write_reply", reply)
+    r = say(client, fake, w, message="10000")
+    assert "50,000" not in r["reply"] and corrections[1] and "50000" in corrections[1]
+
+    async def stubborn(**kw):
+        return "That means ₹50,000 is still owed."
+    monkeypatch.setattr(llm, "write_reply", stubborn)
+    r = say(client, fake, w, message="10000")
+    assert "50,000" not in r["reply"]

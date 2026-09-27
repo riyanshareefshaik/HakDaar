@@ -256,6 +256,27 @@ def event_to_memory(e: dict) -> str:
     return e.get("notes") or ""
 
 
+def numbers_in(text: str) -> set[int]:
+    """'₹1,200 for 6 days' -> {1200, 6}"""
+    import re
+    return {int(n.replace(",", "")) for n in re.findall(r"\d[\d,]*", text or "") if n.replace(",", "").isdigit()}
+
+
+def invented_amounts(reply: str, *sources: str) -> set[int]:
+    """Money-sized numbers (>= 100) in the reply that appear nowhere in what we gave the model.
+    Those are the model doing its own maths, e.g. '5 days x ₹10,000 = ₹50,000' when the ledger
+    has no rate recorded, which is exactly what must never reach a worker."""
+    allowed = set()
+    for src in sources:
+        allowed |= numbers_in(src)
+    return {n for n in numbers_in(reply) if n >= 100 and n not in allowed}
+
+
+NO_MATHS = ("Your previous draft stated rupee amounts that are not in LEDGER, NOTED THIS TURN or ALERTS "
+            "({amounts}). Do not calculate anything. Rewrite the reply using only amounts that appear there. "
+            "If an amount is not in LEDGER, do not state it: ask the worker for the missing detail instead.")
+
+
 def fallback_reply(stored: list[dict], alerts: list[dict]) -> str:
     parts = ["I saved your message."]
     parts += [event_to_memory(e) for e in stored]
@@ -328,13 +349,24 @@ async def handle_message(worker: dict, message: str) -> dict:
 
     # 4. Reply in the worker's language using the exact numbers. The facts are already saved,
     #    so if Groq fails now we fall back to a plain reply instead of losing the turn.
+    reply_args = dict(
+        worker_name=worker["name"], language=worker["language"], message=message, history=history,
+        ledger_text=ledger_text(current_ledger), noted_text=noted_text(stored, others),
+        alerts_text="\n".join(f"- {a['message']}" for a in alerts) or "(none)",
+        memories_text=memories_text(mems), reputation_text=memories_text(rep_mems),
+    )
+    # Numbers the reply may repeat: the exact ledger/alerts, and what the worker said themselves.
+    grounded = [reply_args["ledger_text"], reply_args["noted_text"], reply_args["alerts_text"], message,
+                *[m["content"] for m in history if m["role"] == "user"]]
     try:
-        reply = await llm.write_reply(
-            worker_name=worker["name"], language=worker["language"], message=message, history=history,
-            ledger_text=ledger_text(current_ledger), noted_text=noted_text(stored, others),
-            alerts_text="\n".join(f"- {a['message']}" for a in alerts) or "(none)",
-            memories_text=memories_text(mems), reputation_text=memories_text(rep_mems),
-        )
+        reply = await llm.write_reply(**reply_args)
+        bad = invented_amounts(reply, *grounded)
+        if bad:
+            log.warning("Reply invented amounts %s; asking for a rewrite", sorted(bad))
+            reply = await llm.write_reply(**reply_args, correction=NO_MATHS.format(amounts=", ".join(map(str, sorted(bad)))))
+            if invented_amounts(reply, *grounded):
+                log.warning("Rewrite still invented amounts; using the plain reply")
+                reply = fallback_reply(stored, alerts)
     except llm.LLMUnavailable as e:
         warnings.append(str(e))
         reply = fallback_reply(stored, alerts)
