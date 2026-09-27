@@ -52,6 +52,8 @@ body {
   /* surfaces */
   .panel { @apply rounded-[28px] border border-line bg-surface; }
   .card { @apply rounded-2xl border border-line bg-card; }
+  /* main screen panels: dark frosted glass over the dimmed background video */
+  .glass { @apply rounded-[28px] border border-line bg-black/55 backdrop-blur-xl; }
 
   /* buttons */
   .btn-white {

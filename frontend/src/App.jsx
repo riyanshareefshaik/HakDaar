@@ -357,13 +357,19 @@ export default function App() {
   ]
 
   return (
-    <div className="flex h-dvh flex-col bg-bg">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-bg">
+      {/* The landing page's video, kept very dim so it only adds depth behind the glass panels */}
+      <video className="pointer-events-none absolute inset-0 size-full object-cover opacity-35" autoPlay muted loop playsInline aria-hidden="true">
+        <source src={BG_VIDEO} type="video/mp4" />
+      </video>
+      <div className="pointer-events-none absolute inset-0 bg-black/60" aria-hidden="true" />
+
       <Header s={s} language={language} onLanguage={changeLanguage} nav={nav}
         worker={worker} alertCount={repAlerts} onAccount={() => openDrawer(repAlerts ? 'alerts' : 'memories')} />
       {degraded}
 
-      <main className="mx-auto grid min-h-0 w-full max-w-[1400px] flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-3 sm:p-6 sm:pt-5 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <section className={`${tab === 'chat' ? 'flex' : 'hidden'} panel min-h-0 min-w-0 flex-col overflow-hidden lg:flex`}>
+      <main className="relative z-10 mx-auto grid min-h-0 w-full max-w-[1400px] flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-3 sm:p-6 sm:pt-5 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <section className={`${tab === 'chat' ? 'flex' : 'hidden'} glass min-h-0 min-w-0 flex-col overflow-hidden lg:flex`}>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line px-4 py-3 sm:px-6">
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-semibold leading-tight text-white">{worker.name}</p>
@@ -398,14 +404,14 @@ export default function App() {
           </div>
         </section>
 
-        <aside className={`${tab === 'ledger' ? 'block' : 'hidden'} panel min-h-0 overflow-hidden lg:block`}>
+        <aside className={`${tab === 'ledger' ? 'block' : 'hidden'} glass min-h-0 overflow-hidden lg:block`}>
           <LedgerPanel s={s} ledger={ledger} loading={loadingWorker} onUndo={undo} />
         </aside>
       </main>
 
-      <footer className="hidden pb-3 text-center text-[12px] text-muted lg:block" lang={language}>{s.footer}</footer>
+      <footer className="relative z-10 hidden pb-3 text-center text-[12px] text-muted lg:block" lang={language}>{s.footer}</footer>
 
-      <nav className="grid grid-cols-3 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav className="relative z-10 grid grid-cols-3 border-t border-line bg-black/70 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
         {tabs.map(({ id, label, icon: Icon, dot, onClick }) => {
           const active = id === 'account' ? drawer.open : tab === id && !drawer.open
           return (
