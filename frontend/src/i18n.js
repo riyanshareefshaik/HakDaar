@@ -302,7 +302,7 @@ const AUTH = {
     howItWorks: 'How HakDaar works', help: 'Help',
     sideTitle: 'A wage notebook that remembers for you.',
     sideBody: 'HakDaar is a free record book for construction and daily-wage workers in Hyderabad.',
-    sidePoints: ['Works in Telugu, Hindi and English', 'Your records are private to you', 'No SMS or OTP charges'],
+    sidePoints: ['Works in Telugu, Hindi and English', 'Your records are private to you'],
     stepOf: (i, n) => `${i} of ${n}`, done: 'Done',
     features: [
       ['Speak or type', 'Tell HakDaar about your work in Telugu, Hindi or English. Tap Speak and talk, the way you would to a friend.'],
@@ -331,7 +331,7 @@ const AUTH = {
     howItWorks: 'HakDaar ఎలా పనిచేస్తుంది', help: 'సహాయం',
     sideTitle: 'మీ కోసం గుర్తుంచుకునే కూలి పుస్తకం.',
     sideBody: 'హైదరాబాద్‌లోని నిర్మాణ, రోజువారీ కూలీల కోసం ఉచిత లెక్కల పుస్తకం HakDaar.',
-    sidePoints: ['తెలుగు, హిందీ, ఇంగ్లీష్‌లో పనిచేస్తుంది', 'మీ లెక్కలు మీకు మాత్రమే', 'SMS లేదా OTP ఖర్చు లేదు'],
+    sidePoints: ['తెలుగు, హిందీ, ఇంగ్లీష్‌లో పనిచేస్తుంది', 'మీ లెక్కలు మీకు మాత్రమే'],
     stepOf: (i, n) => `${n} లో ${i}`, done: 'సరే',
     features: [
       ['మాట్లాడండి లేదా టైప్ చేయండి', 'మీ పని గురించి తెలుగు, హిందీ లేదా ఇంగ్లీష్‌లో చెప్పండి. "మాట్లాడండి" నొక్కి స్నేహితుడితో మాట్లాడినట్లు మాట్లాడండి.'],
@@ -360,7 +360,7 @@ const AUTH = {
     howItWorks: 'HakDaar कैसे काम करता है', help: 'मदद',
     sideTitle: 'मज़दूरी की किताब जो आपके लिए याद रखती है।',
     sideBody: 'HakDaar हैदराबाद के निर्माण और दिहाड़ी मज़दूरों के लिए मुफ़्त हिसाब-किताब है।',
-    sidePoints: ['तेलुगु, हिंदी और अंग्रेज़ी में', 'आपका हिसाब सिर्फ़ आपके लिए', 'SMS या OTP का कोई खर्च नहीं'],
+    sidePoints: ['तेलुगु, हिंदी और अंग्रेज़ी में', 'आपका हिसाब सिर्फ़ आपके लिए'],
     stepOf: (i, n) => `${n} में से ${i}`, done: 'ठीक है',
     features: [
       ['बोलें या लिखें', 'अपने काम के बारे में हिंदी, तेलुगु या अंग्रेज़ी में बताइए। "बोलें" दबाकर दोस्त की तरह बात कीजिए।'],
