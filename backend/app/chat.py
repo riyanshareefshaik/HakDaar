@@ -1,0 +1,312 @@
+"""The /chat pipeline:
+
+  message -> LLM extracts facts -> Python stores events + computes ledger
+          -> alerts + anonymised employer reports (exact numbers)
+          -> retain to Hindsight, recall from worker bank + employer-reputation
+          -> LLM writes a short reply using the exact numbers
+"""
+import asyncio
+import difflib
+import logging
+from datetime import date, datetime, timezone
+
+from . import db, ledger, llm, memory
+
+log = logging.getLogger("hakdaar.chat")
+
+
+# ---------------------------------------------------------------- employer names
+
+def _norm(name: str) -> str:
+    return " ".join(name.lower().replace(".", " ").split())
+
+
+def canonical_employer(name: str | None, known: list[str]) -> str | None:
+    """Map 'suresh', 'Suresh garu', 'SURESH CONSTRUCTIONS' onto an existing employer name so the
+    ledger doesn't split one employer into several rows."""
+    if not name or not name.strip():
+        return None
+    name = name.strip()
+    n = _norm(name)
+    for k in known:
+        if _norm(k) == n:
+            return k
+    for k in known:
+        kn = _norm(k)
+        # 'suresh' vs 'suresh constructions' -> same employer. A bare first name only matches on
+        # the first word, so 'Green Homes' and 'Green Valley' stay separate.
+        if n in kn or kn in n or (len(n.split()) == 1 and n == kn.split()[0]):
+            return k
+    close = difflib.get_close_matches(n, [_norm(k) for k in known], n=1, cutoff=0.8)
+    if close:
+        return next(k for k in known if _norm(k) == close[0])
+    return name.title() if name.islower() else name
+
+
+# ---------------------------------------------------------------- events -> ledger rows
+
+def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str) -> tuple[list[dict], list[dict]]:
+    """Turn raw extracted facts into rows to store. Returns (rows_to_store, other_notes).
+
+    'is_total' and 'pays_full_balance' are resolved here in Python against the current ledger.
+    """
+    known = db.employer_names_for_worker(worker_id)
+    # Worker-wide employers + employers other workers mentioned, to help spelling match.
+    candidates = known + [n for n in db.all_employer_names() if n not in known]
+    stored_events = db.list_events(worker_id)
+    last_employer = known[0] if known else None
+
+    rows, others = [], []
+    for ev in extracted:
+        # Recompute each time so two facts in one message ("worked 2 days, got 1000")
+        # resolve against up-to-date numbers.
+        current = {r["employer_name"]: r for r in ledger.summarize(stored_events + rows)}
+        employer = canonical_employer(ev.employer_name, candidates) or last_employer
+        base = {"employer_name": employer, "date": ev.date or date.today().isoformat(), "notes": ev.notes}
+
+        if ev.type == "other" or employer is None:
+            # Can't book money without knowing who it's from; keep it as a note for the reply.
+            others.append({**base, "type": "other", "amount": ev.amount, "days": ev.days,
+                           "needs_employer": ev.type != "other"})
+            continue
+
+        cur = current.get(employer, {})
+        if ev.type == "promise":
+            if ev.amount is None or ev.amount <= 0:
+                others.append({**base, "type": "other", "notes": ev.notes or "promise without a rate"})
+                continue
+            rows.append({**base, "type": "promise", "amount": round(ev.amount), "days": None})
+
+        elif ev.type == "work_day":
+            days = ev.days if ev.days is not None else 1
+            if ev.is_total:
+                days = days - float(cur.get("days_worked") or 0)  # only the new days
+            if days <= 0:
+                continue
+            rows.append({**base, "type": "work_day", "amount": None, "days": days})
+
+        elif ev.type == "payment":
+            amount = ev.amount
+            if ev.pays_full_balance and amount is None:
+                amount = cur.get("amount_owed")  # exact figure from the ledger
+            elif ev.is_total and amount is not None:
+                amount = amount - (cur.get("amount_paid") or 0)
+            if amount is None or amount <= 0:
+                others.append({**base, "type": "other", "notes": ev.notes or "payment amount unclear"})
+                continue
+            rows.append({**base, "type": "payment", "amount": round(amount), "days": None})
+
+        if rows and rows[-1]["employer_name"]:
+            last_employer = rows[-1]["employer_name"]
+    return rows, others
+
+
+# ---------------------------------------------------------------- alerts & reputation
+
+def reputation_alert(employer: str, worker_id: str) -> dict | None:
+    stats = db.employer_report_stats(employer, exclude_worker_id=worker_id)
+    n = stats["workers_reporting_problems"]
+    if n == 0:
+        return None
+    what = []
+    if stats["short_payment"]:
+        what.append("short")
+    if stats["late_payment"]:
+        what.append("late")
+    kind = " or ".join(what) if what else "unfair"
+    return {
+        "type": "employer_reputation",
+        "severity": "warning",
+        "employer_name": employer,
+        "count": n,
+        "message": f"{n} other worker{'s' if n != 1 else ''} reported {kind} payment from {employer}.",
+    }
+
+
+def build_alerts(worker_id: str, current_ledger: list[dict], focus: set[str]) -> list[dict]:
+    """Underpayment alerts for employers touched this turn (or all, if none were), plus
+    reputation warnings for every employer this worker deals with."""
+    alerts = []
+    for row in current_ledger:
+        if (not focus or row["employer_name"] in focus) and (row["amount_owed"] or 0) > 0:
+            alerts.append({
+                "type": "underpayment",
+                "severity": "danger",
+                "employer_name": row["employer_name"],
+                "amount_owed": row["amount_owed"],
+                "message": (f"{row['employer_name']} owes you {ledger.format_inr(row['amount_owed'])} "
+                            f"({row['days_worked']} days x {ledger.format_inr(row['rate_per_day'])} = "
+                            f"{ledger.format_inr(row['amount_earned'])}, paid {ledger.format_inr(row['amount_paid'])})."),
+            })
+    for row in current_ledger:
+        a = reputation_alert(row["employer_name"], worker_id)
+        if a:
+            alerts.append(a)
+    return alerts
+
+
+def anonymised_report(row: dict, kind: str) -> str:
+    if kind == "paid_ok":
+        return (f"A worker reported that {row['employer_name']} paid fully: promised "
+                f"{ledger.format_inr(row['rate_per_day'])}/day for {row['days_worked']} days and paid "
+                f"{ledger.format_inr(row['amount_paid'])}.")
+    return (f"A worker reported a short payment from {row['employer_name']}: promised "
+            f"{ledger.format_inr(row['rate_per_day'])}/day, worked {row['days_worked']} days "
+            f"(earned {ledger.format_inr(row['amount_earned'])}), but was paid only "
+            f"{ledger.format_inr(row['amount_paid'])}. Short by {ledger.format_inr(row['amount_owed'])}.")
+
+
+def record_reputation(worker_id: str, current_ledger: list[dict], paid_employers: set[str]) -> list[tuple[str, str, dict]]:
+    """After a payment, write an anonymised report to SQLite (exact counts) and return what should
+    also be retained into the shared Hindsight bank."""
+    to_retain = []
+    for row in current_ledger:
+        if row["employer_name"] not in paid_employers or row["status"] == "unknown_rate":
+            continue
+        kind = "short_payment" if (row["amount_owed"] or 0) > 0 else "paid_ok"
+        summary = anonymised_report(row, kind)
+        # One report per worker/employer/kind keeps counts honest if the worker repeats themselves.
+        if not db.has_report(row["employer_name"], worker_id, kind):
+            db.add_employer_report(row["employer_name"], worker_id, kind, row["amount_owed"] or 0, summary)
+        to_retain.append((row["employer_name"], kind, summary))
+    return to_retain
+
+
+# ---------------------------------------------------------------- prompt text helpers
+
+def ledger_text(current_ledger: list[dict]) -> str:
+    if not current_ledger:
+        return "(no employers recorded yet)"
+    lines = []
+    for r in current_ledger:
+        if r["status"] == "unknown_rate":
+            lines.append(f"- {r['employer_name']}: daily rate NOT KNOWN yet, days worked {r['days_worked']}, "
+                         f"paid {ledger.format_inr(r['amount_paid'])}")
+            continue
+        line = (f"- {r['employer_name']}: promised {ledger.format_inr(r['rate_per_day'])}/day, "
+                f"days worked {r['days_worked']}, earned {ledger.format_inr(r['amount_earned'])}, "
+                f"paid {ledger.format_inr(r['amount_paid'])}, owed {ledger.format_inr(r['amount_owed'])}")
+        if r["advance"]:
+            line += f" (advance of {ledger.format_inr(r['advance'])} already given)"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def noted_text(stored: list[dict], others: list[dict]) -> str:
+    lines = []
+    for e in stored:
+        if e["type"] == "promise":
+            lines.append(f"- {e['employer_name']} promised {ledger.format_inr(e['amount'])}/day")
+        elif e["type"] == "work_day":
+            lines.append(f"- worked {e['days']:g} day(s) for {e['employer_name']}")
+        elif e["type"] == "payment":
+            lines.append(f"- received {ledger.format_inr(e['amount'])} from {e['employer_name']}")
+    for o in others:
+        if o.get("needs_employer"):
+            lines.append("- the worker mentioned work or money but did not say which employer; ask them")
+        elif o.get("notes"):
+            lines.append(f"- note: {o['notes']}")
+    return "\n".join(lines) or "(nothing new to record)"
+
+
+def memories_text(mems: list[dict]) -> str:
+    return "\n".join(f"- {m['text']}" for m in mems) or "(none yet)"
+
+
+def event_to_memory(e: dict) -> str:
+    if e["type"] == "promise":
+        return f"{e['employer_name']} promised a daily wage of {ledger.format_inr(e['amount'])} per day."
+    if e["type"] == "work_day":
+        return f"Worked {e['days']:g} day(s) for {e['employer_name']}."
+    if e["type"] == "payment":
+        return f"Received a payment of {ledger.format_inr(e['amount'])} from {e['employer_name']}."
+    return e.get("notes") or ""
+
+
+def fallback_reply(stored: list[dict], alerts: list[dict]) -> str:
+    parts = ["I saved your message."]
+    parts += [event_to_memory(e) for e in stored]
+    parts += [a["message"] for a in alerts]
+    return " ".join(parts)
+
+
+# ---------------------------------------------------------------- main entrypoint
+
+async def handle_message(worker: dict, message: str) -> dict:
+    worker_id = worker["id"]
+    bank = memory.worker_bank(worker_id)
+    warnings: list[str] = []
+
+    history = db.list_messages(worker_id, limit=6)
+
+    # 1. Extract structured facts. If Groq is down this raises LLMUnavailable -> 503 upstream,
+    #    before we store anything, so a retry doesn't double-count.
+    extracted = await llm.extract_events(message, db.employer_names_for_worker(worker_id))
+    rows, others = to_ledger_events(extracted, worker_id)
+
+    # 2. Store message + events in SQLite and compute the exact ledger.
+    msg_id = db.add_message(worker_id, "user", message)
+    stored = [db.add_event(worker_id, r, message_id=msg_id) for r in rows]
+    current_ledger = ledger.summarize(db.list_events(worker_id))
+
+    touched = {e["employer_name"] for e in stored}
+    paid = {e["employer_name"] for e in stored if e["type"] == "payment"}
+    reports = record_reputation(worker_id, current_ledger, paid)
+    alerts = build_alerts(worker_id, current_ledger, touched)
+
+    # 3. Memory: retain this turn, recall from the worker's bank + shared reputation bank.
+    now = datetime.now(timezone.utc)
+    facts = "\n".join(f"- {event_to_memory(e)}" for e in stored)
+    turn_content = f"{worker['name']} said: {message}" + (f"\nRecorded facts:\n{facts}" if facts else "")
+
+    employers_in_focus = list(touched) or [r["employer_name"] for r in current_ledger[:3]]
+    recall_query = message if not employers_in_focus else f"{message}\n(employers: {', '.join(employers_in_focus)})"
+    rep_query = (f"How do {', '.join(employers_in_focus)} pay their workers? Any short or late payments?"
+                 if employers_in_focus else "")
+
+    async def _retain_all():
+        await memory.retain(bank, turn_content, context="chat message from worker", timestamp=now,
+                            metadata={"worker_id": worker_id, "kind": "chat"})
+        for employer, kind, summary in reports:
+            await memory.retain(memory.REPUTATION_BANK, summary, context=f"anonymous wage report ({kind})",
+                                timestamp=now, metadata={"employer": employer, "kind": kind})
+
+    async def _recall_rep():
+        return await memory.recall(memory.REPUTATION_BANK, rep_query, limit=4) if rep_query else []
+
+    # recall first (so we don't see our own un-processed message), retain in parallel.
+    results = await asyncio.gather(memory.recall(bank, recall_query), _recall_rep(), _retain_all(),
+                                   return_exceptions=True)
+    mems = results[0] if not isinstance(results[0], Exception) else []
+    rep_mems = results[1] if not isinstance(results[1], Exception) else []
+    for r in results:
+        if isinstance(r, memory.MemoryUnavailable):
+            warnings.append(f"Memory is offline: {r}")
+            break
+        if isinstance(r, Exception):
+            log.exception("memory step failed", exc_info=r)
+            warnings.append("Memory had a problem this turn; wages were still recorded.")
+            break
+
+    # 4. Reply in the worker's language using the exact numbers. The facts are already saved,
+    #    so if Groq fails now we fall back to a plain reply instead of losing the turn.
+    try:
+        reply = await llm.write_reply(
+            worker_name=worker["name"], language=worker["language"], message=message, history=history,
+            ledger_text=ledger_text(current_ledger), noted_text=noted_text(stored, others),
+            alerts_text="\n".join(f"- {a['message']}" for a in alerts) or "(none)",
+            memories_text=memories_text(mems), reputation_text=memories_text(rep_mems),
+        )
+    except llm.LLMUnavailable as e:
+        warnings.append(str(e))
+        reply = fallback_reply(stored, alerts)
+    db.add_message(worker_id, "assistant", reply)
+
+    return {
+        "reply": reply,
+        "extracted_events": stored + others,
+        "alerts": alerts,
+        "recalled_memories": mems + rep_mems,
+        "ledger": current_ledger,
+        "warnings": warnings,
+    }

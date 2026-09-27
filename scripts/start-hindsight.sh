@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 set -a; source .env; set +a
 
 docker rm -f hindsight >/dev/null 2>&1 || true
-docker run -d --pull always --name hindsight --restart unless-stopped --shm-size=1g \
+docker run -d --pull missing --name hindsight --restart unless-stopped --shm-size=1g \
   -p 8888:8888 -p 9999:9999 \
   -e HINDSIGHT_API_LLM_PROVIDER=groq \
   -e HINDSIGHT_API_LLM_API_KEY="$GROQ_API_KEY" \
