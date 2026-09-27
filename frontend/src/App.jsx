@@ -53,8 +53,18 @@ export default function App() {
   const [welcomeOpen, setWelcomeOpen] = useState(true)
   const [celebrating, setCelebrating] = useState(false)
   const owedByEmployer = useRef(null)
-  const [storyOpen, setStoryOpen] = useState(false)
-  const [legalDoc, setLegalDoc] = useState(null)
+  // Links from the landing page: /app?mode=register, /app?guide=1, /app?doc=terms|privacy
+  const [entry] = useState(() => {
+    const q = new URLSearchParams(window.location.search)
+    const doc = q.get('doc')
+    return { mode: q.get('mode') === 'register' ? 'register' : 'login', guide: q.has('guide'),
+      doc: doc === 'terms' || doc === 'privacy' ? doc : null }
+  })
+  const [storyOpen, setStoryOpen] = useState(entry.guide)
+  const [legalDoc, setLegalDoc] = useState(entry.doc)
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname)
+  }, [])
 
   const pollTimers = useRef([])
   const learnedRef = useRef(EMPTY_LEARNED)
@@ -314,7 +324,7 @@ export default function App() {
         <Header s={s} language={uiLang} onLanguage={setLang} />
         {degraded}
         <div className="flex-1 overflow-y-auto">
-          <Login onLogin={login} lang={uiLang} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
+          <Login onLogin={login} lang={uiLang} initialMode={entry.mode} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
           <footer className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 pb-6 text-sm text-muted">
             <span>© 2026 HakDaar · {s.footer}</span>
             <nav className="flex flex-wrap gap-x-4 gap-y-1 whitespace-nowrap">

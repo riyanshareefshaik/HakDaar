@@ -12,9 +12,9 @@ const digits = (v) => v.replace(/\D/g, '')
  * - sign-up does not log in: it returns to "Log in" with a confirmation
  * - PIN can be shown, is entered twice at sign-up, and can be reset with a security question (no paid SMS)
  */
-export default function Login({ onLogin, lang = 'en', onOpenLegal, onHowItWorks }) {
+export default function Login({ onLogin, lang = 'en', onOpenLegal, onHowItWorks, initialMode = 'login' }) {
   const s = t(lang)
-  const [mode, setMode] = useState('login') // login | register | reset
+  const [mode, setMode] = useState(initialMode) // login | register | reset
   const [notice, setNotice] = useState(null)
   const [error, setError] = useState(null)
   const [errors, setErrors] = useState({})

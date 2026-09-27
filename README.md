@@ -30,7 +30,8 @@ cp .env.example .env              # then put your GROQ_API_KEY in .env
 ./scripts/start-frontend.sh       # 3. app on http://localhost:5173   (new terminal)
 ```
 
-Open **http://localhost:5173**, choose a language, **create an account** (name, phone number and a 4-digit
+Open **http://localhost:5173**: you land on the **HakDaar landing page** (`/landing/`, plain HTML/CSS/JS with a
+full-screen video background). **Get Started** opens sign-up in the app at **`/app`**. In the app, choose a language, **create an account** (name, phone number and a 4-digit
 PIN) and start chatting. HakDaar starts **empty**: there is no fake or seeded data, and everything it knows is
 learned from real conversations.
 
@@ -42,7 +43,8 @@ learned from real conversations.
 
 | Service | URL |
 |---|---|
-| HakDaar app | http://localhost:5173 |
+| Landing page | http://localhost:5173 (→ `/landing/`) |
+| HakDaar app | http://localhost:5173/app |
 | HakDaar API docs (Swagger) | http://localhost:8000/docs |
 | Health check | http://localhost:8000/health |
 | Hindsight API | http://localhost:8888 |
@@ -233,6 +235,8 @@ backend/
   app/db.py        SQLite schema and queries
   tests/           ledger + end-to-end API tests (Groq and Hindsight mocked)
 frontend/
+  public/landing/                  static landing page: index.html, styles.css, main.js, assets/logo.webp,
+                                   fonts/GeistPixel-Circle.woff2 (SIL OFL, from the official `geist` package)
   src/App.jsx                      session, layout (chat + ledger on desktop, tabs on mobile), live-learning polling
   src/components/Login.jsx         log in / create account: language, phone, 4-digit PIN
   src/components/Header.jsx        logo, language menu, account button

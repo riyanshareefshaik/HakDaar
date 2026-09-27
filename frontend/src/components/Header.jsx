@@ -19,11 +19,13 @@ export default function Header({ s, language, onLanguage, worker, alertCount = 0
   return (
     <header className="header-gradient text-white">
       <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-2.5 lg:px-6">
-        <Logo size={42} className="shrink-0 drop-shadow-sm" />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-2xl font-extrabold leading-none tracking-tight">Hak<span className="text-amber-300">Daar</span></h1>
-          <p className="hidden truncate text-sm leading-tight text-white/80 sm:block">{s.tagline}</p>
-        </div>
+        <a href="/landing/" className="flex min-w-0 flex-1 items-center gap-3" title="HakDaar home">
+          <Logo size={42} className="shrink-0 drop-shadow-sm" />
+          <span className="min-w-0">
+            <span className="block truncate font-display text-2xl font-extrabold leading-none tracking-tight">Hak<span className="text-amber-300">Daar</span></span>
+            <span className="hidden truncate text-sm leading-tight text-white/80 sm:block">{s.tagline}</span>
+          </span>
+        </a>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {onLanguage && <LanguageMenu language={language} onChange={onLanguage} />}
