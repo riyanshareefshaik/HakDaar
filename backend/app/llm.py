@@ -68,6 +68,7 @@ class ExtractedEvent(BaseModel):
     # Extra hints that let Python (not the LLM) do the arithmetic:
     is_total: bool = False           # "I have worked 8 days in total" / "he has paid 5000 in all"
     pays_full_balance: bool = False  # "he paid me everything he owed"
+    is_late: bool = False            # payment came later than promised
 
     @field_validator("amount", "days", mode="before")
     @classmethod
@@ -90,7 +91,8 @@ Return ONLY JSON: {{"events": [ ... ]}}. Each event:
   "date": "YYYY-MM-DD" or null,
   "notes": short English note or null,
   "is_total": boolean,
-  "pays_full_balance": boolean}}
+  "pays_full_balance": boolean,
+  "is_late": boolean}}
 
 Rules:
 - promise: employer promised a DAILY rate. amount = rupees per day. If a weekly/monthly/lump-sum amount is promised, put it in notes and set type "other".
@@ -99,6 +101,7 @@ Rules:
 - payment: the worker received money. amount = rupees received in THIS message.
   If they state a running total received ("he has paid me 5000 in all"), set is_total true.
   If they say they were paid everything owed / the full balance without a number, set amount null and pays_full_balance true.
+  If they say the payment came late / after a delay / after many days or weeks of waiting, set is_late true.
 - other: anything else relevant (complaints, delays, threats, questions). One "other" event is enough; do not create events for greetings.
 - NEVER calculate anything. Copy numbers exactly as the worker said them. Convert words like "teen hazaar"/"మూడు వేలు" to 3000.
 - employer_name: reuse the exact spelling from KNOWN EMPLOYERS when it is clearly the same employer (e.g. "Suresh" -> "Suresh Constructions").

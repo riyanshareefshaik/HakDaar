@@ -1,23 +1,35 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, CircleAlert, MessageCircleHeart, Mic, RefreshCw, SendHorizontal, ShieldCheck, Square, X } from 'lucide-react'
+import {
+  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, CircleAlert, CircleHelp, Loader2, MessageCircleHeart,
+  Mic, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, X,
+} from 'lucide-react'
 import { inr } from '../api'
 import { LANGS } from '../i18n'
+import { canSpeak, speak } from '../hooks'
 
 const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
-export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, banner, onDismissBanner, suggestions, loading }) {
+const QUICK = [
+  { key: 'promise', icon: BriefcaseBusiness },
+  { key: 'worked', icon: CalendarCheck },
+  { key: 'paid', icon: Banknote },
+  { key: 'owed', icon: CircleHelp, sendNow: true },
+]
+
+export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning }) {
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
   const endRef = useRef(null)
   const recRef = useRef(null)
   const inputRef = useRef(null)
+  const speechTag = LANGS.find((l) => l.code === language)?.speech || 'en-IN'
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, sending])
 
-  // Stop listening if the worker or language changes mid-dictation.
-  useEffect(() => () => recRef.current?.abort(), [worker?.id, language])
+  // Stop listening/speaking if the worker or language changes.
+  useEffect(() => () => { recRef.current?.abort(); if (canSpeak) window.speechSynthesis.cancel() }, [worker?.id, language])
 
   const send = (msg = text) => {
     const m = msg.trim()
@@ -27,17 +39,24 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
     setText('')
   }
 
+  const quick = (q) => {
+    const tpl = s.templates[q.key]
+    if (q.sendNow) return send(tpl)
+    setText(tpl)
+    requestAnimationFrame(() => {
+      const el = inputRef.current
+      if (el) { el.focus(); el.setSelectionRange(tpl.length, tpl.length) }
+    })
+  }
+
   const toggleMic = () => {
     if (listening) { recRef.current?.stop(); return }
     const rec = new SpeechRecognition()
-    rec.lang = LANGS.find((l) => l.code === language)?.speech || 'en-IN'
+    rec.lang = speechTag
     rec.interimResults = true
     rec.continuous = false
     const base = text ? text.trim() + ' ' : ''
-    rec.onresult = (e) => {
-      const said = Array.from(e.results).map((r) => r[0].transcript).join('')
-      setText(base + said)
-    }
+    rec.onresult = (e) => setText(base + Array.from(e.results).map((r) => r[0].transcript).join(''))
     rec.onend = () => { setListening(false); inputRef.current?.focus() }
     rec.onerror = () => setListening(false)
     recRef.current = rec
@@ -45,17 +64,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
     rec.start()
   }
 
-  if (!worker) {
-    return (
-      <div className="grid h-full place-items-center p-6 text-center">
-        <div>
-          <ShieldCheck className="mx-auto mb-3 size-14 text-brand/40" />
-          <p className="text-lg font-semibold">{s.noWorkers}</p>
-          <p className="text-muted">{s.noWorkersBody}</p>
-        </div>
-      </div>
-    )
-  }
+  const lastAssistant = messages.findLastIndex((m) => m.role === 'assistant')
 
   return (
     <div className="flex h-full flex-col">
@@ -76,13 +85,13 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
 
       <div className="flex-1 overflow-y-auto scroll-thin px-4 py-4" lang={language}>
         {loading ? (
-          <div className="space-y-3">
+          <div className="mx-auto max-w-3xl space-y-3">
             {[60, 40, 70].map((w, i) => (
               <div key={i} className={`h-14 animate-pulse rounded-2xl bg-sand ${i % 2 ? 'ml-auto' : ''}`} style={{ width: `${w}%` }} />
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <div className="mx-auto mt-8 max-w-md text-center">
+          <div className="mx-auto mt-6 max-w-md text-center animate-fade-up">
             <div className="mx-auto mb-3 grid size-16 place-items-center rounded-full bg-brand-soft">
               <MessageCircleHeart className="size-8 text-brand" />
             </div>
@@ -90,8 +99,11 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
             <p className="mt-1 text-muted">{s.emptyChatBody}</p>
           </div>
         ) : (
-          <ul className="mx-auto max-w-3xl space-y-3">
-            {messages.map((m, i) => <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} />)}
+          <ul className="mx-auto max-w-3xl space-y-4">
+            {messages.map((m, i) => (
+              <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag}
+                showLearning={i === lastAssistant && !sending ? learning : null} />
+            ))}
             {sending && (
               <li className="flex items-center gap-2 text-muted animate-fade-up">
                 <span className="flex gap-1 rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-soft">
@@ -110,12 +122,15 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
       <div className="border-t border-black/5 bg-cream/95 px-4 pb-3 pt-2 backdrop-blur">
         <div className="mx-auto max-w-3xl">
           <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto" lang={language}>
-            {suggestions.map((q) => (
-              <button key={q} onClick={() => send(q)} disabled={sending}
-                className="shrink-0 rounded-full border border-brand/25 bg-white px-3 py-1.5 text-sm text-brand hover:bg-brand-soft disabled:opacity-50">
-                {q}
-              </button>
-            ))}
+            {QUICK.map((q) => {
+              const Icon = q.icon
+              return (
+                <button key={q.key} onClick={() => quick(q)} disabled={sending}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand/20 bg-white px-3 py-1.5 text-sm font-medium text-brand shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-soft disabled:opacity-50">
+                  <Icon className="size-4" /> {s.quick[q.key]}
+                </button>
+              )
+            })}
           </div>
           <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
             <div className={`flex flex-1 items-end rounded-2xl border bg-white shadow-soft transition ${listening ? 'border-danger ring-2 ring-danger/20' : 'border-black/10 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20'}`}>
@@ -135,7 +150,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
               )}
             </div>
             <button type="submit" disabled={!text.trim() || sending} aria-label={s.send}
-              className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-soft transition hover:bg-brand-dark disabled:opacity-40">
+              className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-soft transition hover:bg-brand-dark active:scale-95 disabled:opacity-40">
               <SendHorizontal className="size-6" />
             </button>
           </form>
@@ -145,7 +160,9 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   )
 }
 
-function Bubble({ m, s, onRetry }) {
+function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning }) {
+  const [speaking, setSpeaking] = useState(false)
+
   if (m.role === 'error') {
     return (
       <li className="flex animate-fade-up items-start gap-2 rounded-2xl border border-danger/20 bg-danger-soft px-4 py-3 text-danger">
@@ -161,40 +178,75 @@ function Bubble({ m, s, onRetry }) {
       </li>
     )
   }
+
   const mine = m.role === 'user'
+  const events = (m.events || []).filter((e) => ['promise', 'work_day', 'payment'].includes(e.type))
+
+  const listen = () => {
+    if (speak(m.content, speechTag)) {
+      setSpeaking(true)
+      setTimeout(() => setSpeaking(false), Math.min(15000, 400 + m.content.length * 70))
+    }
+  }
+
   return (
     <li className={`flex animate-fade-up flex-col ${mine ? 'items-end' : 'items-start'}`}>
       <div className={`max-w-[85%] whitespace-pre-wrap px-4 py-3 text-[1.05rem] shadow-soft ${mine
         ? 'rounded-2xl rounded-br-md bg-brand text-white'
-        : 'rounded-2xl rounded-bl-md bg-white text-ink'}`}>
+        : 'rounded-2xl rounded-bl-md border border-black/5 bg-white text-ink'}`}>
         {m.content}
       </div>
-      {mine && m.events?.length > 0 && (
-        <div className="mt-1 flex max-w-[85%] flex-wrap justify-end gap-1">
-          {m.events.map((e, i) => <EventChip key={i} e={e} s={s} />)}
+
+      {mine && events.length > 0 && (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
+          {events.map((e) => <EventChip key={e.id} e={e} s={s} onUndo={onUndo} />)}
         </div>
       )}
+
       {m.warnings?.map((w) => (
         <p key={w} className="mt-1 flex items-center gap-1 text-xs text-warn"><AlertTriangle className="size-3.5" /> {w}</p>
       ))}
-      {m.created_at && (
-        <span className="mt-0.5 px-1 text-xs text-muted">
-          {new Date(m.created_at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-        </span>
-      )}
+
+      <div className={`mt-1 flex items-center gap-2 px-1 text-xs text-muted ${mine ? 'flex-row-reverse' : ''}`}>
+        {m.created_at && (
+          <span>{new Date(m.created_at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+        )}
+        {!mine && canSpeak && (
+          <button onClick={listen} className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold transition ${speaking ? 'bg-brand text-white' : 'text-brand hover:bg-brand-soft'}`}>
+            <Volume2 className="size-3.5" /> {s.listen}
+          </button>
+        )}
+        {showLearning === 'pending' && (
+          <span className="flex items-center gap-1 text-brand"><Loader2 className="size-3.5 animate-spin" /> {s.learning}</span>
+        )}
+        {typeof showLearning === 'number' && showLearning > 0 && (
+          <span className="flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 font-semibold text-brand animate-fade-up">
+            <Sparkles className="size-3.5" /> {s.learnedNew(showLearning)}
+          </span>
+        )}
+      </div>
     </li>
   )
 }
 
-function EventChip({ e, s }) {
+function EventChip({ e, s, onUndo }) {
+  const [busy, setBusy] = useState(false)
   let label
   if (e.type === 'promise') label = `${e.employer_name}: ${inr(e.amount)}${s.perDay}`
-  else if (e.type === 'work_day') label = `+${e.days} ${s.days.toLowerCase()} · ${e.employer_name}`
-  else if (e.type === 'payment') label = `${s.paid} ${inr(e.amount)} · ${e.employer_name}`
-  else return null
+  else if (e.type === 'work_day') label = `+${e.days} ${s.days} · ${e.employer_name}`
+  else label = `${s.paid} ${inr(e.amount)} · ${e.employer_name}`
+
+  if (e.undone) {
+    return <span className="rounded-full bg-sand px-2.5 py-1 text-xs text-muted line-through">{label}</span>
+  }
   return (
-    <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">
+    <span className="flex items-center gap-1 rounded-full border border-brand/15 bg-brand-soft py-0.5 pl-2.5 pr-1 text-xs font-medium text-brand">
       ✓ {s.noted}: {label}
+      <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy}
+        title={s.undo} aria-label={`${s.undo}: ${label}`}
+        className="grid size-6 place-items-center rounded-full text-brand/70 transition hover:bg-white hover:text-danger">
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
+      </button>
     </span>
   )
 }

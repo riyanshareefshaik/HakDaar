@@ -45,8 +45,9 @@ export const api = {
   alerts: (id) => req(`/workers/${enc(id)}/alerts`),
   chat: (worker_id, message) => req('/chat', { method: 'POST', body: { worker_id, message } }),
   reputation: (name) => req(`/employers/${enc(name)}/reputation`),
-  seed: () => req('/demo/seed', { method: 'POST' }),
-  reset: () => req('/demo/reset', { method: 'POST' }),
+  deleteWorker: (id) => req(`/workers/${enc(id)}`, { method: 'DELETE' }),
+  deleteEvent: (id, eventId) => req(`/workers/${enc(id)}/events/${eventId}`, { method: 'DELETE' }),
+  reset: () => req('/reset', { method: 'POST' }),
 }
 
 export function inr(n) {

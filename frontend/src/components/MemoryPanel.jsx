@@ -1,15 +1,20 @@
 import { useState } from 'react'
-import { AlertTriangle, BadgeCheck, Brain, Building2, CircleAlert, Loader2, MessageSquareQuote, Users, Wallet } from 'lucide-react'
+import {
+  AlertTriangle, BadgeCheck, Banknote, Brain, BriefcaseBusiness, Building2, CalendarCheck, ChevronDown, CircleAlert,
+  Loader2, MessageSquareQuote, Sparkles, Undo2, Users, Wallet,
+} from 'lucide-react'
 import { api, inr } from '../api'
+import { useCountUp } from '../hooks'
 
-export default function MemoryPanel({ s, worker, ledger, memories, memorySource, memoryError, alerts, loading }) {
+export default function MemoryPanel({ s, worker, ledger, recalled, learned, newIds, memoryError, alerts, loading, learning, onUndo }) {
   return (
     <div className="h-full space-y-4 overflow-y-auto scroll-thin p-4">
       <h2 className="flex items-center gap-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">
         <Brain className="size-4" /> {s.remembers}
       </h2>
-      <LedgerCard s={s} ledger={ledger} loading={loading} />
-      <MemoriesCard s={s} worker={worker} memories={memories} source={memorySource} error={memoryError} loading={loading} />
+      <LedgerCard s={s} ledger={ledger} loading={loading} onUndo={onUndo} />
+      <MemoriesCard s={s} worker={worker} recalled={recalled} learned={learned} newIds={newIds}
+        error={memoryError} loading={loading} learning={learning} />
       <AlertsCard s={s} alerts={alerts} loading={loading} />
     </div>
   )
@@ -29,53 +34,107 @@ function Skeleton({ rows = 2 }) {
   return <div className="space-y-2">{Array.from({ length: rows }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-sand" />)}</div>
 }
 
-function LedgerCard({ s, ledger, loading }) {
+// ---------------------------------------------------------------- ledger
+
+function LedgerCard({ s, ledger, loading, onUndo }) {
   const employers = ledger?.employers || []
   return (
     <section className="card p-4">
       <CardTitle icon={Wallet}>{s.ledger}</CardTitle>
       {loading ? <Skeleton /> : employers.length === 0 ? (
-        <p className="text-sm text-muted">{s.noLedger}</p>
+        <p className="rounded-xl bg-sand/70 p-3 text-sm text-muted">{s.noLedger}</p>
       ) : (
         <div className="space-y-3">
-          {employers.map((r) => {
-            const owed = r.amount_owed ?? 0
-            const unknown = r.status === 'unknown_rate'
-            return (
-              <div key={r.employer_name} className={`rounded-xl border p-3 transition ${owed > 0 ? 'border-danger/25 bg-danger-soft/50' : 'border-black/5 bg-sand/60'}`}>
-                <p className="flex items-center gap-1.5 font-semibold"><Building2 className="size-4 text-muted" /> {r.employer_name}</p>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                  <Stat label={s.promised} value={unknown ? '?' : `${inr(r.rate_per_day)}${s.perDay}`} />
-                  <Stat label={s.days} value={r.days_worked} />
-                  <Stat label={s.paid} value={inr(r.amount_paid)} />
-                </dl>
-                <div className="mt-3 flex items-end justify-between border-t border-black/5 pt-2">
-                  <span className="text-sm text-muted">
-                    {unknown ? s.rateUnknown : `${s.earned}: ${inr(r.amount_earned)}`}
-                  </span>
-                  {unknown ? null : owed > 0 ? (
-                    <span className="text-right">
-                      <span className="block text-xs font-semibold uppercase tracking-wide text-danger">{s.owed}</span>
-                      <span className="text-3xl font-extrabold leading-none text-danger">{inr(owed)}</span>
-                    </span>
-                  ) : (
-                    <span className="text-right">
-                      <span className="block text-xs font-semibold uppercase tracking-wide text-brand">{r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</span>
-                      <span className="text-3xl font-extrabold leading-none text-brand">₹0</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-          {employers.length > 1 && ledger.totals.amount_owed > 0 && (
-            <p className="flex justify-between px-1 font-semibold text-danger">
-              <span>{s.owed}</span><span>{inr(ledger.totals.amount_owed)}</span>
-            </p>
-          )}
+          {employers.map((r) => <EmployerRow key={r.employer_name} r={r} s={s} onUndo={onUndo} />)}
         </div>
       )}
     </section>
+  )
+}
+
+function EmployerRow({ r, s, onUndo }) {
+  const [open, setOpen] = useState(false)
+  const owed = useCountUp(r.amount_owed ?? 0)
+  const unknown = r.status === 'unknown_rate'
+  const isOwed = (r.amount_owed ?? 0) > 0
+  const pct = r.amount_earned ? Math.min(100, Math.round((r.amount_paid / r.amount_earned) * 100)) : 0
+
+  return (
+    <div className={`rounded-xl border p-3 transition ${isOwed ? 'border-danger/25 bg-danger-soft/50' : 'border-black/5 bg-sand/60'}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="flex min-w-0 items-center gap-1.5 font-semibold"><Building2 className="size-4 shrink-0 text-muted" /> <span className="truncate">{r.employer_name}</span></p>
+        {!unknown && (
+          isOwed ? (
+            <span className="text-right">
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-danger">{s.owed}</span>
+              <span className="text-3xl font-extrabold leading-none tabular-nums text-danger">{inr(owed)}</span>
+            </span>
+          ) : (
+            <span className="text-right">
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-brand">{r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</span>
+              <span className="text-3xl font-extrabold leading-none text-brand">₹0</span>
+            </span>
+          )
+        )}
+      </div>
+
+      <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+        <Stat label={s.promised} value={unknown ? '?' : `${inr(r.rate_per_day)}${s.perDay}`} />
+        <Stat label={s.days} value={r.days_worked} />
+        <Stat label={s.paid} value={inr(r.amount_paid)} />
+      </dl>
+
+      {unknown ? (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-warn"><CircleAlert className="size-4" /> {s.rateUnknown}</p>
+      ) : (
+        <div className="mt-3">
+          <div className="h-2 overflow-hidden rounded-full bg-white">
+            <div className={`h-full rounded-full transition-all duration-700 ${isOwed ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${pct}%` }} />
+          </div>
+          <p className="mt-1 flex justify-between text-xs text-muted">
+            <span>{s.paid} {inr(r.amount_paid)}</span>
+            <span>{s.earned} {inr(r.amount_earned)} <span className="opacity-70">({r.days_worked} × {inr(r.rate_per_day)})</span></span>
+          </p>
+        </div>
+      )}
+
+      {r.entries?.length > 0 && (
+        <>
+          <button onClick={() => setOpen(!open)}
+            className="mt-2 flex items-center gap-1 text-sm font-semibold text-brand hover:underline">
+            <ChevronDown className={`size-4 transition ${open ? 'rotate-180' : ''}`} />
+            {open ? s.hideEntries : `${s.showEntries} (${r.entries.length})`}
+          </button>
+          {open && (
+            <ol className="mt-2 space-y-1.5 border-l-2 border-brand/20 pl-3 animate-fade-up">
+              {r.entries.map((e) => <EntryRow key={e.id} e={e} s={s} onUndo={onUndo} />)}
+            </ol>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function EntryRow({ e, s, onUndo }) {
+  const [busy, setBusy] = useState(false)
+  const conf = {
+    promise: { icon: BriefcaseBusiness, label: s.entryPromise, value: `${inr(e.amount)}${s.perDay}` },
+    work_day: { icon: CalendarCheck, label: s.entryWork, value: `${e.days} ${s.days}` },
+    payment: { icon: Banknote, label: s.entryPay, value: inr(e.amount) },
+  }[e.type]
+  const Icon = conf.icon
+  const date = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''
+  return (
+    <li className="group flex items-center gap-2 text-sm">
+      <Icon className="size-4 shrink-0 text-muted" />
+      <span className="flex-1">{conf.label} <b>{conf.value}</b></span>
+      <span className="text-xs text-muted">{date}</span>
+      <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy} title={s.undo} aria-label={s.undo}
+        className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white hover:text-danger lg:opacity-0 lg:group-hover:opacity-100">
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
+      </button>
+    </li>
   )
 }
 
@@ -83,36 +142,60 @@ function Stat({ label, value }) {
   return (
     <div>
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className="font-semibold">{value}</dd>
+      <dd className="font-semibold tabular-nums">{value}</dd>
     </div>
   )
 }
 
-function MemoriesCard({ s, worker, memories, source, error, loading }) {
+// ---------------------------------------------------------------- memories
+
+function MemoriesCard({ s, recalled, learned, newIds, error, loading, learning }) {
+  const [view, setView] = useState('learned')
+  const items = view === 'recalled' ? recalled : learned.items
   return (
     <section className="card p-4">
-      <CardTitle icon={Brain} right={<span className="rounded-full bg-sand px-2 py-0.5 text-[11px] font-semibold text-muted">Hindsight</span>}>
+      <CardTitle icon={Brain}
+        right={learning === 'pending'
+          ? <span className="flex items-center gap-1 text-xs font-semibold text-brand"><Loader2 className="size-3.5 animate-spin" /> Hindsight</span>
+          : <span className="rounded-full bg-sand px-2 py-0.5 text-[11px] font-semibold text-muted">Hindsight</span>}>
         {s.memories}
       </CardTitle>
-      <p className="-mt-2 mb-3 text-xs text-muted">
-        {source === 'latest' ? s.memoriesLatest : `${s.memoriesProfile} ${worker?.name ?? ''}`}
-      </p>
+
+      <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-sand p-1 text-sm">
+        {[['learned', `${s.allLearned} (${learned.total})`], ['recalled', s.usedLastReply]].map(([k, label]) => (
+          <button key={k} onClick={() => setView(k)}
+            className={`rounded-lg px-2 py-1.5 font-semibold transition ${view === k ? 'bg-white text-brand shadow-soft' : 'text-muted hover:text-ink'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="mb-3 text-xs text-muted">{view === 'recalled' ? s.usedHint : s.learnedHint}</p>
+
+      {typeof learning === 'number' && learning > 0 && view === 'learned' && (
+        <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-brand-soft px-2.5 py-1.5 text-sm font-semibold text-brand animate-slide-down">
+          <Sparkles className="size-4" /> {s.learnedNew(learning)}
+        </p>
+      )}
+
       {loading ? <Skeleton rows={1} /> : error ? (
         <p className="flex items-start gap-2 rounded-xl bg-warn-soft p-3 text-sm text-warn"><CircleAlert className="mt-0.5 size-4 shrink-0" /> {error}</p>
-      ) : memories.length === 0 ? (
-        <p className="text-sm text-muted">{s.noMemories}</p>
+      ) : items.length === 0 ? (
+        <p className="rounded-xl bg-sand/70 p-3 text-sm text-muted">{view === 'recalled' ? s.noRecall : s.noMemories}</p>
       ) : (
-        <ul className="flex flex-wrap gap-1.5">
-          {memories.map((m, i) => {
+        <ul className="max-h-[22rem] space-y-1.5 overflow-y-auto scroll-thin pr-1">
+          {items.map((m, i) => {
             const community = m.bank === 'employer-reputation'
+            const fresh = newIds.has(m.id)
             return (
               <li key={`${m.bank}-${m.id ?? i}`} title={m.text}
-                className={`animate-fade-up rounded-xl border px-2.5 py-1.5 text-sm leading-snug ${community ? 'border-warn/25 bg-warn-soft text-ink' : 'border-brand/15 bg-brand-soft text-ink'}`}
-                style={{ animationDelay: `${i * 40}ms` }}>
-                <span className={`mr-1 text-[10px] font-bold uppercase ${community ? 'text-warn' : 'text-brand'}`}>
-                  {community ? s.community : s.personal}
+                className={`animate-fade-up rounded-xl border px-3 py-2 text-sm leading-snug transition ${fresh ? 'border-brand bg-brand-soft ring-2 ring-brand/20' : community ? 'border-warn/25 bg-warn-soft' : 'border-black/5 bg-sand/50'}`}
+                style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}>
+                <span className="mb-0.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide">
+                  <span className={community ? 'text-warn' : 'text-brand'}>{community ? s.community : s.personal}</span>
+                  {fresh && <span className="rounded bg-brand px-1 text-white">new</span>}
+                  {m.date && <span className="font-medium normal-case text-muted">{new Date(m.date).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>}
                 </span>
-                {m.text.length > 140 ? m.text.slice(0, 140) + '…' : m.text}
+                {m.text.length > 180 ? m.text.slice(0, 180) + '…' : m.text}
               </li>
             )
           })}
@@ -121,6 +204,8 @@ function MemoriesCard({ s, worker, memories, source, error, loading }) {
     </section>
   )
 }
+
+// ---------------------------------------------------------------- alerts
 
 function AlertsCard({ s, alerts, loading }) {
   const rep = alerts.filter((a) => a.type === 'employer_reputation')
@@ -150,9 +235,9 @@ function ReputationAlert({ a, s }) {
     }
   }
   return (
-    <li className="rounded-xl border border-warn/30 bg-warn-soft p-3">
-      <p className="flex items-start gap-2 font-semibold text-warn">
-        <AlertTriangle className="mt-0.5 size-5 shrink-0" /> <span className="text-ink">{a.message}</span>
+    <li className="rounded-xl border border-warn/30 bg-warn-soft p-3 animate-fade-up">
+      <p className="flex items-start gap-2 font-semibold">
+        <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warn" /> <span>{a.message}</span>
       </p>
       {!state.summary && (
         <button onClick={ask} disabled={state.loading}

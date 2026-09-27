@@ -133,13 +133,20 @@ def add_message(worker_id: str, role: str, content: str, created_at: str | None 
         return cur.lastrowid
 
 
-def list_messages(worker_id: str, limit: int = 100) -> list[dict]:
+def list_messages(worker_id: str, limit: int = 100, with_events: bool = False) -> list[dict]:
     with connect() as conn:
-        rows = conn.execute(
+        rows = [dict(r) for r in conn.execute(
             "SELECT * FROM (SELECT * FROM messages WHERE worker_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id",
             (worker_id, limit),
-        )
-        return [dict(r) for r in rows]
+        )]
+        if with_events:
+            # Attach the ledger entries each message produced, so the UI can show and undo them.
+            by_msg: dict[int, list] = {}
+            for e in conn.execute("SELECT * FROM events WHERE worker_id = ? AND message_id IS NOT NULL", (worker_id,)):
+                by_msg.setdefault(e["message_id"], []).append(dict(e))
+            for r in rows:
+                r["events"] = by_msg.get(r["id"], [])
+        return rows
 
 
 # ---------- events ----------
@@ -160,6 +167,31 @@ def add_event(worker_id: str, event: dict, message_id: int | None = None,
 def list_events(worker_id: str) -> list[dict]:
     with connect() as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM events WHERE worker_id = ? ORDER BY id", (worker_id,))]
+
+
+def get_event(worker_id: str, event_id: int) -> dict | None:
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM events WHERE id = ? AND worker_id = ?", (event_id, worker_id)).fetchone()
+        return dict(row) if row else None
+
+
+def delete_event(worker_id: str, event_id: int) -> None:
+    with connect() as conn:
+        conn.execute("DELETE FROM events WHERE id = ? AND worker_id = ?", (event_id, worker_id))
+
+
+def delete_reports(employer_name: str, worker_id: str) -> None:
+    with connect() as conn:
+        conn.execute("DELETE FROM employer_reports WHERE employer_name = ? AND worker_id = ?",
+                     (employer_name, worker_id))
+
+
+def delete_worker(worker_id: str) -> None:
+    with connect() as conn:
+        conn.execute("DELETE FROM employer_reports WHERE worker_id = ?", (worker_id,))
+        conn.execute("DELETE FROM events WHERE worker_id = ?", (worker_id,))
+        conn.execute("DELETE FROM messages WHERE worker_id = ?", (worker_id,))
+        conn.execute("DELETE FROM workers WHERE id = ?", (worker_id,))
 
 
 def employer_names_for_worker(worker_id: str) -> list[str]:

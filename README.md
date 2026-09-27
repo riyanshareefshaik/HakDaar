@@ -30,8 +30,8 @@ cp .env.example .env              # then put your GROQ_API_KEY in .env
 ./scripts/start-frontend.sh       # 3. app on http://localhost:5173   (new terminal)
 ```
 
-Open **http://localhost:5173** and click **Load demo data**. Wait ~60 s for Hindsight to process the
-memories, then pick **Ravi** and start chatting.
+Open **http://localhost:5173**, choose a language, enter a name and start chatting. HakDaar starts
+**empty**: there is no fake or seeded data, and everything it knows is learned from real conversations.
 
 | Service | URL |
 |---|---|
@@ -69,21 +69,23 @@ cd frontend && npm install && npm run dev
 
 ---
 
-## Demo script (2 minutes)
+## Walkthrough (2 minutes, all live, no seeded data)
 
-1. **Load demo data.** Three workers appear:
-   - **Ravi** (Telugu): Suresh Constructions promised ₹700/day, 6 days worked, paid ₹3,000 → **owed ₹1,200**.
-   - **Lakshmi** (Hindi): also worked for Suresh Constructions; paid **late and short**.
-   - **Imran** (English): Green Homes paid fully and on time → **owed ₹0**.
-2. **Ravi**: the ledger shows **Owed ₹1,200** in red. *Employer alerts* shows "1 other worker reported
-   short or late payment from Suresh Constructions" (that's Lakshmi, anonymised).
-3. Say or type: **"ఈ రోజు ఇంకో 2 రోజులు పని చేశాను"** ("I worked 2 more days today"). HakDaar notes
-   **+2 days**, the red banner shows **₹2,600 owed**, the reply comes in Telugu, and the *Memories* card shows
-   what Hindsight recalled to write it.
-4. Click **"What have workers reported?"**. Hindsight `reflect()` summarises Suresh Constructions' record
-   from the shared `employer-reputation` bank.
-5. Switch to **Imran**: green ₹0, no warnings. The same system reports good employers too.
-6. Refresh the page or restart the backend. Everything is still remembered.
+1. **Lakshmi** (हिंदी) chats: *"सुरेश कंस्ट्रक्शन्स ने रोज़ ₹650 का वादा किया"* → *"10 दिन काम किया"* →
+   *"3 हफ्ते बाद सिर्फ़ ₹5,000 मिले"*. Her ledger shows **₹1,500 owed**, and an anonymised *short + late
+   payment* report goes into the shared `employer-reputation` memory.
+2. **Ravi** (తెలుగు) says *"సురేష్ గారు రోజుకు ₹700 ఇస్తామన్నారు"* ("Suresh promised ₹700 a day"). HakDaar
+   immediately warns him: **"1 other worker reported short or late payment from Suresh Constructions"**.
+   It learned this from Lakshmi, without revealing her name.
+3. Ravi: *"6 రోజులు పని చేశాను"* ("I worked 6 days") → *"₹3,000 ఇచ్చారు"* ("They paid ₹3,000"). The red banner
+   shows **₹1,200 owed**; the wallet tiles count up to Earned ₹4,200 / Paid ₹3,000 / Owed ₹1,200.
+4. Watch the **Memories** card: after each message it shows *"Learning…"* and then **"Learned N new facts"**,
+   with the new facts highlighted. Switch to *Used in last reply* to see exactly what Hindsight recalled.
+5. A number misheard? Tap **↶ Undo** on the "Noted" chip (or in *Show entries*). The ledger recomputes and a
+   correction is retained into memory.
+6. Tap **Listen** on any reply to hear it read aloud, and **"What have workers reported?"** for a Hindsight
+   `reflect()` summary of the employer.
+7. Refresh or restart everything: all of it is still remembered.
 
 ---
 
@@ -117,8 +119,9 @@ flowchart LR
    amounts with `Decimal`. **The LLM never does maths**, so every rupee shown is exact and auditable.
    Employer names are normalised ("suresh" → "Suresh Constructions") so one employer never splits into two rows.
 3. **Alerts and learning.** If money is owed, an underpayment alert is raised. After any payment, an
-   **anonymised** report ("A worker reported a short payment from X…") is written to SQLite (for exact
-   counts) **and** retained into the shared Hindsight bank.
+   **anonymised** report ("A worker reported a short payment from X…", or "…paid late") is written to SQLite
+   (for exact counts) **and** retained into the shared Hindsight bank. One current report per worker and
+   employer, so a later full payment replaces an earlier "short" report instead of double counting.
 4. **Remember and recall.** The message and its facts are `retain`ed into the worker's own bank. HakDaar
    `recall`s from the worker's bank and from `employer-reputation` in parallel.
 5. **Reply.** Groq writes a short, kind reply in the worker's language using the recalled memories plus
@@ -130,12 +133,12 @@ flowchart LR
 |---|---|---|
 | `retain` | every chat turn → `worker-{id}` | Long-term personal memory: promises, dates, worries, context |
 | `retain` | after a payment → `employer-reputation` | Cross-worker learning, anonymised (no names ever stored) |
-| `retain_batch` | `/demo/seed` | Pre-loads realistic history (with past timestamps) so memory exists before the demo |
-| `recall` | every chat turn, both banks | Context for the reply, shown live in the **Memories** card |
-| `recall` | `GET /workers/{id}/memories` | "What HakDaar remembers" when you open a worker |
+| `retain` | after an undo → `worker-{id}` | A correction note so memory stays consistent with the ledger |
+| `recall` | every chat turn, both banks | Context for the reply, shown live in *Memories → Used in last reply* |
+| `list_memories` | `GET /workers/{id}/memories` | *Memories → All learned*: every fact Hindsight has extracted, newest first. The UI polls it after each message to show learning live |
 | `reflect` | `GET /employers/{name}/reputation` | A reasoned summary of an employer's payment record |
-| `create_bank` | new worker / seed | Sets each bank's *retain mission* so Hindsight extracts wage-relevant facts |
-| `delete_bank` | `/demo/reset` | Clean demo resets |
+| `create_bank` | new worker | Sets each bank's *retain mission* so Hindsight extracts wage-relevant facts |
+| `delete_bank` | remove worker / `POST /reset` | Deletes a worker's private memory |
 
 **Bank design:** one private bank per worker (`worker-{worker_id}`), strictly isolated, plus one shared
 `employer-reputation` bank. Worker ids are random (`ravi-3f9a1c`) and never reused, so a reset can never
@@ -161,12 +164,15 @@ workers. SQLite holds the *numbers*. Money needs exact arithmetic, and memory ne
 | GET / POST | `/workers` | List workers / create `{name, language: en\|te\|hi, phone?}` |
 | PATCH | `/workers/{id}` | Change reply language `{language}` |
 | POST | `/chat` | `{worker_id, message}` → `{reply, extracted_events, alerts, recalled_memories, ledger, warnings}` |
-| GET | `/workers/{id}/messages` | Chat history |
+| DELETE | `/workers/{id}` | Remove a worker, their ledger, chats and private memory bank |
+| GET | `/workers/{id}/messages` | Chat history (each message carries the ledger entries it produced) |
+| GET | `/workers/{id}/events` | Every ledger entry |
+| DELETE | `/workers/{id}/events/{event_id}` | Undo a wrong entry → recomputed ledger + correction retained |
 | GET | `/workers/{id}/ledger` | Per employer: rate promised, days worked, earned, paid, **owed** |
-| GET | `/workers/{id}/memories` | What Hindsight recalls about this worker |
+| GET | `/workers/{id}/memories` | Hindsight recall + everything learned (`learned`, `total_learned`) |
 | GET | `/workers/{id}/alerts` | Current underpayment and reputation alerts |
 | GET | `/employers/{name}/reputation` | Exact report counts plus Hindsight `reflect()` summary |
-| POST | `/demo/seed` · `/demo/reset` | Load the demo story / wipe SQLite and HakDaar's memory banks |
+| POST | `/reset` | Wipe SQLite and all HakDaar memory banks (fresh start) |
 
 `{id}` also accepts a unique worker name (e.g. `/workers/ravi/ledger`), which is handy in Swagger.
 
@@ -180,12 +186,12 @@ backend/
   app/ledger.py    exact wage arithmetic (Decimal), ₹ formatting
   app/memory.py    Hindsight wrapper: banks, retain / recall / reflect
   app/db.py        SQLite schema and queries
-  app/seed.py      demo story (Ravi, Lakshmi, Imran)
   tests/           ledger + end-to-end API tests (Groq and Hindsight mocked)
 frontend/
-  src/App.jsx                   state, layout (3 columns on desktop, bottom tabs on mobile)
-  src/components/ChatPanel.jsx  chat, voice input, typing indicator, underpayment banner
-  src/components/MemoryPanel.jsx wage ledger, memory chips, employer alerts
+  src/App.jsx                    state, layout (3 columns on desktop, bottom tabs on mobile), live-learning polling
+  src/components/Onboarding.jsx  first-run: choose language, enter name
+  src/components/ChatPanel.jsx   chat, voice input, read-aloud, quick actions, undo chips, underpayment banner
+  src/components/MemoryPanel.jsx wage ledger (entries + undo), learned/recalled memories, employer alerts
   src/i18n.js                   English / Telugu / Hindi UI strings
 scripts/            start-hindsight.sh, start-backend.sh, start-frontend.sh
 ```
@@ -210,10 +216,11 @@ The tests mock Groq and Hindsight, so they need neither.
 ## Troubleshooting
 - **Docker "Pulling fs layer" seems stuck:** the Hindsight image is several GB; let it finish.
   `docker pull ghcr.io/vectorize-io/hindsight:latest` shows progress bars.
-- **Memories card is empty right after seeding:** Hindsight processes memories in the background. Wait
-  about a minute, then re-select the worker.
+- **"Learning…" but no new facts appear:** Hindsight extracts facts in the background with its own LLM
+  calls. Check `docker logs hindsight` for Groq errors (e.g. rate limits).
 - **Groq 429 (rate limit):** wait a few seconds; the free tier has per-minute limits.
 - **Mic button missing:** the browser doesn't support the Web Speech API (use Chrome or Edge).
+- **Listen reads Telugu/Hindi badly:** install a Telugu/Hindi voice in your OS speech settings.
 
 ## License
 MIT

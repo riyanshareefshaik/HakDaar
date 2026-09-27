@@ -117,6 +117,28 @@ async def recall(bank_id: str, query: str, limit: int = 8) -> list[dict]:
     return out
 
 
+async def list_learned(bank_id: str, limit: int = 30) -> dict:
+    """Everything Hindsight has extracted into a bank, newest first. This is what the worker's
+    memory has *learned* over time (as opposed to recall, which is relevance-ranked)."""
+    try:
+        resp = await _call(client().alist_memories, bank_id=bank_id, limit=limit)
+    except MemoryUnavailable as e:
+        if isinstance(e.__cause__, NotFoundException):
+            return {"total": 0, "items": []}
+        raise
+    items = []
+    for m in resp.items or []:
+        when = m.occurred_start or m.mentioned_at or m.var_date
+        items.append({
+            "id": m.id,
+            "text": m.text,
+            "type": m.fact_type,
+            "date": when.isoformat() if hasattr(when, "isoformat") else when,
+            "bank": bank_id,
+        })
+    return {"total": resp.total, "items": items}
+
+
 async def reflect(bank_id: str, query: str, context: str | None = None) -> str:
     """Hindsight's reasoned answer over a bank. Empty string if the bank doesn't exist yet."""
     try:

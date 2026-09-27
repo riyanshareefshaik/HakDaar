@@ -94,7 +94,7 @@ def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str) -> tup
             if amount is None or amount <= 0:
                 others.append({**base, "type": "other", "notes": ev.notes or "payment amount unclear"})
                 continue
-            rows.append({**base, "type": "payment", "amount": round(amount), "days": None})
+            rows.append({**base, "type": "payment", "amount": round(amount), "days": None, "late": ev.is_late})
 
         if rows and rows[-1]["employer_name"]:
             last_employer = rows[-1]["employer_name"]
@@ -156,6 +156,23 @@ def anonymised_report(row: dict, kind: str) -> str:
             f"{ledger.format_inr(row['amount_paid'])}. Short by {ledger.format_inr(row['amount_owed'])}.")
 
 
+def rebuild_reputation(worker_id: str, employer: str, current_ledger: list[dict]) -> None:
+    """After an entry is undone, recompute this worker's (exact) reports for that employer."""
+    late = db.has_report(employer, worker_id, "late_payment")
+    late_summary = None
+    if late:
+        with db.connect() as conn:
+            late_summary = conn.execute(
+                "SELECT summary FROM employer_reports WHERE employer_name = ? AND worker_id = ? AND kind = 'late_payment'",
+                (employer, worker_id)).fetchone()[0]
+    db.delete_reports(employer, worker_id)
+    row = next((r for r in current_ledger if r["employer_name"] == employer), None)
+    if row and row["payments"] > 0:
+        record_reputation(worker_id, current_ledger, {employer})
+        if late_summary:
+            db.add_employer_report(employer, worker_id, "late_payment", 0, late_summary)
+
+
 def record_reputation(worker_id: str, current_ledger: list[dict], paid_employers: set[str]) -> list[tuple[str, str, dict]]:
     """After a payment, write an anonymised report to SQLite (exact counts) and return what should
     also be retained into the shared Hindsight bank."""
@@ -165,9 +182,12 @@ def record_reputation(worker_id: str, current_ledger: list[dict], paid_employers
             continue
         kind = "short_payment" if (row["amount_owed"] or 0) > 0 else "paid_ok"
         summary = anonymised_report(row, kind)
-        # One report per worker/employer/kind keeps counts honest if the worker repeats themselves.
-        if not db.has_report(row["employer_name"], worker_id, kind):
-            db.add_employer_report(row["employer_name"], worker_id, kind, row["amount_owed"] or 0, summary)
+        # One current report per worker/employer keeps counts honest: a later full payment
+        # replaces an earlier 'short' report, and repeats don't inflate the numbers.
+        with db.connect() as conn:
+            conn.execute("DELETE FROM employer_reports WHERE employer_name = ? AND worker_id = ? "
+                         "AND kind IN ('short_payment', 'paid_ok')", (row["employer_name"], worker_id))
+        db.add_employer_report(row["employer_name"], worker_id, kind, row["amount_owed"] or 0, summary)
         to_retain.append((row["employer_name"], kind, summary))
     return to_retain
 
@@ -252,6 +272,11 @@ async def handle_message(worker: dict, message: str) -> dict:
     touched = {e["employer_name"] for e in stored}
     paid = {e["employer_name"] for e in stored if e["type"] == "payment"}
     reports = record_reputation(worker_id, current_ledger, paid)
+    for employer in {r["employer_name"] for r in rows if r.get("late")}:
+        summary = f"A worker reported that {employer} paid their wages late, after a delay."
+        if not db.has_report(employer, worker_id, "late_payment"):
+            db.add_employer_report(employer, worker_id, "late_payment", 0, summary)
+        reports.append((employer, "late_payment", summary))
     alerts = build_alerts(worker_id, current_ledger, touched)
 
     # 3. Memory: retain this turn, recall from the worker's bank + shared reputation bank.

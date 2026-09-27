@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import chat, db, ledger, llm, memory, seed
+from . import chat, db, ledger, llm, memory
 from .config import settings
 from .health import check_groq, check_hindsight
 
@@ -67,7 +67,7 @@ def _worker_or_404(worker_id: str) -> dict:
     w = db.get_worker(worker_id)
     if not w:
         raise HTTPException(404, f"Worker '{worker_id}' not found. Use an id from GET /workers "
-                             f"(or a worker name); run POST /demo/seed if the list is empty.")
+                             f"(or a worker name).")
     return w
 
 
@@ -113,10 +113,56 @@ def update_worker(worker_id: str, body: WorkerPatch):
     return db.get_worker(w["id"])
 
 
+@app.delete("/workers/{worker_id}")
+async def delete_worker(worker_id: str):
+    """Remove a worker, their ledger, chats and their private memory bank."""
+    w = _worker_or_404(worker_id)
+    db.delete_worker(w["id"])
+    warning = None
+    try:
+        await memory.delete_bank(memory.worker_bank(w["id"]))
+    except memory.MemoryUnavailable as e:
+        warning = str(e)
+    return {"deleted": w["id"], "warning": warning}
+
+
 @app.get("/workers/{worker_id}/messages")
 def get_messages(worker_id: str, limit: int = 100):
+    """Chat history; each user message carries the ledger entries it produced."""
     w = _worker_or_404(worker_id)
-    return db.list_messages(w["id"], limit=limit)
+    return db.list_messages(w["id"], limit=limit, with_events=True)
+
+
+@app.get("/workers/{worker_id}/events")
+def get_events(worker_id: str):
+    w = _worker_or_404(worker_id)
+    return db.list_events(w["id"])
+
+
+@app.delete("/workers/{worker_id}/events/{event_id}")
+async def delete_event(worker_id: str, event_id: int):
+    """Undo a wrongly recorded entry. The ledger is recomputed, reputation reports for that
+    employer are rebuilt, and a correction is retained so memory stays consistent."""
+    w = _worker_or_404(worker_id)
+    ev = db.get_event(w["id"], event_id)
+    if not ev:
+        raise HTTPException(404, "Entry not found")
+    db.delete_event(w["id"], event_id)
+    rows = ledger.summarize(db.list_events(w["id"]))
+    chat.rebuild_reputation(w["id"], ev["employer_name"], rows)
+
+    warning = None
+    try:
+        await memory.retain(
+            memory.worker_bank(w["id"]),
+            f"Correction from {w['name']}: this earlier record was wrong and has been removed: "
+            f"{chat.event_to_memory(ev)}",
+            context="worker corrected the wage ledger",
+            metadata={"worker_id": w["id"], "kind": "correction"},
+        )
+    except memory.MemoryUnavailable as e:
+        warning = str(e)
+    return {"deleted": ev, "ledger": _ledger_payload(w["id"], rows), "warning": warning}
 
 
 @app.post("/chat")
@@ -125,11 +171,19 @@ async def post_chat(body: ChatIn):
     return await chat.handle_message(worker, body.message.strip())
 
 
+def _ledger_payload(worker_id: str, rows: list[dict] | None = None) -> dict:
+    events = db.list_events(worker_id)
+    rows = rows if rows is not None else ledger.summarize(events)
+    # Each employer row carries its underlying entries so the worker can verify every rupee.
+    for r in rows:
+        r["entries"] = [e for e in events if e["employer_name"] == r["employer_name"]]
+    return {"worker_id": worker_id, "employers": rows, "totals": ledger.totals(rows)}
+
+
 @app.get("/workers/{worker_id}/ledger")
 def get_ledger(worker_id: str):
     w = _worker_or_404(worker_id)
-    rows = ledger.summarize(db.list_events(w["id"]))
-    return {"worker_id": w["id"], "employers": rows, "totals": ledger.totals(rows)}
+    return _ledger_payload(w["id"])
 
 
 @app.get("/workers/{worker_id}/memories")
@@ -137,8 +191,10 @@ async def get_memories(worker_id: str, q: str | None = None):
     w = _worker_or_404(worker_id)
     query = q or (f"What do I know about {w['name']}'s employers, promised daily wages, "
                   f"days worked, payments received and problems?")
-    mems = await memory.recall(memory.worker_bank(w["id"]), query, limit=12)
-    return {"worker_id": w["id"], "bank_id": memory.worker_bank(w["id"]), "query": query, "memories": mems}
+    bank = memory.worker_bank(w["id"])
+    mems, learned = await asyncio.gather(memory.recall(bank, query, limit=12), memory.list_learned(bank))
+    return {"worker_id": w["id"], "bank_id": bank, "query": query, "memories": mems,
+            "learned": learned["items"], "total_learned": learned["total"]}
 
 
 @app.get("/workers/{worker_id}/alerts")
@@ -167,11 +223,16 @@ async def employer_reputation(name: str):
     return {"employer_name": employer, "stats": stats, "summary": summary, "error": error}
 
 
-@app.post("/demo/seed")
-async def demo_seed():
-    return await seed.seed()
-
-
-@app.post("/demo/reset")
-async def demo_reset():
-    return await seed.reset()
+@app.post("/reset")
+async def reset_all():
+    """Wipe SQLite and every HakDaar memory bank (fresh start)."""
+    bank_ids = [memory.worker_bank(w["id"]) for w in db.list_workers()] + [memory.REPUTATION_BANK]
+    db.reset_db()
+    deleted, warning = 0, None
+    for b in bank_ids:
+        try:
+            deleted += await memory.delete_bank(b)
+        except memory.MemoryUnavailable as e:
+            warning = str(e)
+            break
+    return {"banks_deleted": deleted, "warning": warning}
