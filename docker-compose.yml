@@ -1,0 +1,51 @@
+# Production: `docker compose up -d --build` runs the whole of HakDaar.
+#   web       Caddy: landing page + React app, /api proxy, automatic HTTPS
+#   backend   FastAPI (SQLite in the hakdaar-data volume)
+#   hindsight Memory server (private: not published to the internet)
+# Settings come from .env (GROQ_API_KEY, SITE_ADDRESS, ...). See DEPLOY.md.
+services:
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [backend]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY in .env}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      HINDSIGHT_URL: http://hindsight:8888
+      HINDSIGHT_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-openai/gpt-oss-20b}
+      DATABASE_PATH: /data/hakdaar.db
+      PUBLIC_MODE: "true"
+      SESSION_SECRET: ${SESSION_SECRET:-}
+    volumes:
+      - hakdaar-data:/data
+    depends_on: [hindsight]
+
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      HINDSIGHT_API_LLM_PROVIDER: groq
+      HINDSIGHT_API_LLM_API_KEY: ${GROQ_API_KEY}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-openai/gpt-oss-20b}
+      HINDSIGHT_API_LLM_GROQ_SERVICE_TIER: on_demand
+      HINDSIGHT_API_WORKER_ID: hakdaar-prod
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+
+volumes:
+  caddy-data:
+  hakdaar-data:
+  hindsight-data:

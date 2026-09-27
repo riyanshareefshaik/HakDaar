@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="HakDaar remembers every wage promise and shows daily-wage workers exactly what they are owed, in Telugu, Hindi or English." />
+    <title>HakDaar · Designed To Evolve</title>
+    <link rel="icon" type="image/webp" href="assets/logo.webp" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://db.onlinewebfonts.com/c/8cb707a9b8a73f8a7403336b861c3074?family=BubbledotICG-FinePos" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true">
+      <video class="bg-video" autoplay muted loop playsinline preload="auto">
+        <source
+          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260809_012548_ef22562c-c0ae-4816-ad9d-f8922af4e6a7.mp4"
+          type="video/mp4"
+        />
+      </video>
+    </div>
+
+    <div class="page">
+      <!-- 1) Header -->
+      <header class="header">
+        <a class="logo" href="/landing/" aria-label="HakDaar home">
+          <img src="assets/logo.webp" alt="" width="52" height="52" />
+        </a>
+
+        <nav class="nav" aria-label="Main">
+          <a href="/landing/" class="active" aria-current="page">Home</a>
+          <a href="/app?guide=1">How it works</a>
+          <a href="/app?doc=privacy">Privacy</a>
+          <a href="/app?doc=terms">Terms</a>
+        </nav>
+
+        <a class="sign-in" href="/app">Sign in</a>
+
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+          <span></span><span></span><span></span>
+        </button>
+      </header>
+
+      <!-- Mobile menu -->
+      <div class="menu-overlay" hidden></div>
+      <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile" hidden>
+        <a href="/landing/" class="active" aria-current="page" style="--i: 0">Home</a>
+        <a href="/app?guide=1" style="--i: 1">How it works</a>
+        <a href="/app?doc=privacy" style="--i: 2">Privacy</a>
+        <a href="/app?doc=terms" style="--i: 3">Terms</a>
+        <a href="/app" class="menu-sign-in" style="--i: 4">Sign in</a>
+      </nav>
+
+      <!-- 2) Hero -->
+      <main class="hero">
+        <div class="trust anim" style="--d: 0.05s">
+          <span class="trust-avatar a1" title="Construction workers"><span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6"/><path d="M14 6a6 6 0 0 1 6 6v3"/></svg></span></span>
+          <span class="trust-avatar a2" title="Domestic helpers"><span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg></span></span>
+          <span class="trust-avatar a3" title="Drivers and loaders"><span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></span></span>
+          <span class="trust-pill">Useful for different types of workers</span>
+        </div>
+
+        <h1 class="headline anim">
+          <span class="line" style="--ld: 0.12s">HakDaar</span>
+          <span class="line" style="--ld: 0.3s">Designed To Evolve</span>
+        </h1>
+
+        <p class="subhead anim" style="--d: 0.28s">
+          HakDaar remembers every wage promise, counts the days you work and shows exactly what you are still owed,
+          just by talking, in Telugu, Hindi or English.
+        </p>
+
+        <a class="cta anim-pulse" href="/app?mode=register" style="--d: 0.4s">Get Started</a>
+      </main>
+
+      <!-- 3) Stats -->
+      <footer class="stats" aria-label="HakDaar at a glance">
+        <div class="stat anim" style="--d: 0.5s">
+          <span class="stat-icon" aria-hidden="true">&lt;</span>
+          <span class="stat-value" data-target="3" data-decimals="0" data-suffix="">0</span>
+          <span class="stat-label">Languages: Telugu, Hindi &amp; English</span>
+        </div>
+        <div class="stat anim" style="--d: 0.58s">
+          <span class="stat-icon" aria-hidden="true">%</span>
+          <span class="stat-value" data-target="100" data-decimals="0" data-suffix="%">0%</span>
+          <span class="stat-label">Exact wage maths, never guessed by AI</span>
+        </div>
+        <div class="stat anim" style="--d: 0.66s">
+          <span class="stat-icon" aria-hidden="true">*</span>
+          <span class="stat-value" data-target="24" data-decimals="0" data-suffix="/7">0/7</span>
+          <span class="stat-label">Remembers every promise, day and night</span>
+        </div>
+        <div class="stat anim" style="--d: 0.74s">
+          <span class="stat-icon" aria-hidden="true">#</span>
+          <span class="stat-value" data-target="0" data-decimals="0" data-prefix="₹" data-suffix="">₹0</span>
+          <span class="stat-label">Cost to workers: completely free</span>
+        </div>
+      </footer>
+    </div>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>

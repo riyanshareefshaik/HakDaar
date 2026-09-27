@@ -1,0 +1,28 @@
+# SITE_ADDRESS is "hakdaar.me, www.hakdaar.me" on a server (Caddy gets HTTPS certificates itself),
+# or ":80" behind a Cloudflare Tunnel (Cloudflare does HTTPS).
+{$SITE_ADDRESS}
+
+encode zstd gzip
+
+# API -> FastAPI. flush_interval -1 so the chat stream (wallet update, then reply) isn't buffered.
+handle_path /api/* {
+	reverse_proxy backend:8000 {
+		flush_interval -1
+	}
+}
+
+# Same routes as the Vite dev server: / -> landing page, everything else -> the React app.
+@home path / /landing
+redir @home /landing/ 302
+
+handle {
+	root * /srv
+	try_files {path} {path}index.html /index.html
+	file_server
+}
+
+header {
+	X-Content-Type-Options nosniff
+	Referrer-Policy strict-origin-when-cross-origin
+	-Server
+}
