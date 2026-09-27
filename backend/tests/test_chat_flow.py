@@ -160,3 +160,8 @@ def test_worker_lookup_by_name(client, fake):
     fake.next_events = [ExtractedEvent(type="work_day", days=2)]
     r = client.post("/chat", json={"worker_id": "Ravi", "message": "2 more days"}).json()
     assert r["ledger"][0]["amount_owed"] == 2600
+
+
+def test_change_language(client, fake):
+    w = client.post("/workers", json={"name": "Anil", "language": "en"}).json()
+    assert client.patch(f"/workers/{w['id']}", json={"language": "te"}).json()["language"] == "te"

@@ -117,6 +117,11 @@ def get_worker(worker_id: str) -> dict | None:
         return dict(rows[0]) if len(rows) == 1 else None
 
 
+def update_worker_language(worker_id: str, language: str) -> None:
+    with connect() as conn:
+        conn.execute("UPDATE workers SET language = ? WHERE id = ?", (language, worker_id))
+
+
 # ---------- messages ----------
 
 def add_message(worker_id: str, role: str, content: str, created_at: str | None = None) -> int:

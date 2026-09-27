@@ -101,6 +101,18 @@ async def create_worker(body: WorkerIn):
     return w
 
 
+class WorkerPatch(BaseModel):
+    language: Literal["en", "te", "hi"]
+
+
+@app.patch("/workers/{worker_id}")
+def update_worker(worker_id: str, body: WorkerPatch):
+    """Change the language HakDaar replies in (the UI's language toggle)."""
+    w = _worker_or_404(worker_id)
+    db.update_worker_language(w["id"], body.language)
+    return db.get_worker(w["id"])
+
+
 @app.get("/workers/{worker_id}/messages")
 def get_messages(worker_id: str, limit: int = 100):
     w = _worker_or_404(worker_id)
