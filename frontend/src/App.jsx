@@ -8,7 +8,8 @@ import ChatPanel from './components/ChatPanel'
 import LedgerPanel from './components/LedgerPanel'
 import Login from './components/Login'
 import AccountDrawer from './components/AccountDrawer'
-import StoryIntro from './components/StoryIntro'
+import HowItWorks from './components/HowItWorks'
+import LegalModal from './components/LegalModal'
 import Celebrate from './components/Celebrate'
 
 const LEDGER_TYPES = new Set(['promise', 'work_day', 'payment'])
@@ -52,7 +53,8 @@ export default function App() {
   const [welcomeOpen, setWelcomeOpen] = useState(true)
   const [celebrating, setCelebrating] = useState(false)
   const owedByEmployer = useRef(null)
-  const [storyOpen, setStoryOpen] = useState(() => !readStored('hakdaar.storySeen'))
+  const [storyOpen, setStoryOpen] = useState(false)
+  const [legalDoc, setLegalDoc] = useState(null)
 
   const pollTimers = useRef([])
   const learnedRef = useRef(EMPTY_LEARNED)
@@ -162,7 +164,6 @@ export default function App() {
     setTab('chat')
   }
   const login = async (creds) => startSession(await api.login(creds))
-  const register = async (body) => startSession(await api.register(body))
 
   const logout = () => {
     stopPolling()
@@ -226,7 +227,7 @@ export default function App() {
   const refreshNudges = (id) =>
     api.nudges(id).then((n) => setWelcome((w) => (w ? { ...w, nudges: n } : w))).catch(() => {})
 
-  const closeStory = () => { writeStored('hakdaar.storySeen', '1'); setStoryOpen(false) }
+  const closeStory = () => setStoryOpen(false)
 
   const retry = (text) => {
     setMessages((m) => m.filter((x) => x.retry !== text))
@@ -307,21 +308,24 @@ export default function App() {
   )
 
   if (!worker) {
+    const setLang = (c) => { setUiLang(c); writeStored('hakdaar.lang', c) }
     return (
-      <div className="flex h-dvh flex-col">
-        <Header s={s} />
+      <div className="flex h-dvh flex-col bg-[#F6F4EE]">
+        <Header s={s} language={uiLang} onLanguage={setLang} />
         {degraded}
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-md px-4 pt-4">
-            <button onClick={() => setStoryOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-100 py-3 text-lg font-bold text-amber-900 shadow-soft transition hover:bg-amber-200">
-              <CirclePlay className="size-6" /> {s.seeStory}
-            </button>
-          </div>
-          <Login onLogin={login} onRegister={register} lang={uiLang} onLang={(c) => { setUiLang(c); writeStored('hakdaar.lang', c) }} />
+          <Login onLogin={login} lang={uiLang} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
+          <footer className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 pb-6 text-sm text-muted">
+            <span>© 2026 HakDaar · {s.footer}</span>
+            <nav className="flex flex-wrap gap-x-4 gap-y-1 whitespace-nowrap">
+              <button onClick={() => setLegalDoc('terms')} className="hover:text-ink hover:underline">{s.terms}</button>
+              <button onClick={() => setLegalDoc('privacy')} className="hover:text-ink hover:underline">{s.privacy}</button>
+              <button onClick={() => setStoryOpen(true)} className="hover:text-ink hover:underline">{s.howItWorks}</button>
+            </nav>
+          </footer>
         </div>
-        <StoryIntro s={s} language={uiLang} open={storyOpen} onClose={closeStory} />
-        <footer className="border-t border-black/5 px-4 py-2 text-center text-xs text-muted"><Info className="mr-1 inline size-3.5 align-[-2px]" />{s.footer}</footer>
+        <HowItWorks s={s} language={uiLang} open={storyOpen} onClose={closeStory} />
+        <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} note={s.legalNote} />
       </div>
     )
   }
@@ -396,7 +400,8 @@ export default function App() {
         ))}
       </nav>
 
-      <StoryIntro s={s} language={language} open={storyOpen} onClose={closeStory} />
+      <HowItWorks s={s} language={language} open={storyOpen} onClose={closeStory} />
+      <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} note={s.legalNote} />
       {celebrating && <Celebrate text={s.celebrate} />}
 
       <AccountDrawer
@@ -404,6 +409,7 @@ export default function App() {
         worker={worker} alerts={alerts}
         memoryProps={{ recalled, learned, newIds, error: memoryError, loading: loadingWorker, learning, worker }}
         onLogout={logout} onDelete={deleteAccount} onResetAll={resetAll}
+        onOpenLegal={setLegalDoc}
         health={health} onRecheck={async () => { try { setHealth(await api.health()) } catch (e) { showToast(e.message, 'error') } }}
       />
 

@@ -34,7 +34,10 @@ Open **http://localhost:5173**, choose a language, **create an account** (name, 
 PIN) and start chatting. HakDaar starts **empty**: there is no fake or seeded data, and everything it knows is
 learned from real conversations.
 
-> Login is deliberately simple (phone + PIN, hashed with PBKDF2) so any phone user can manage it. It is
+> **Accounts:** mobile number + 4-digit PIN (entered twice at sign-up, can be shown/hidden), a security
+> question for **free PIN recovery** (no paid SMS/OTP; answers are hashed, 5 wrong answers lock resets for
+> 15 minutes), and acceptance of the in-app **Terms of Use** and **Privacy Policy**. Sign-up returns to the
+> log-in screen rather than logging in automatically. PINs and answers are hashed with PBKDF2. This is
 > hackathon-grade identification, not production authentication: the API itself has no sessions or tokens.
 
 | Service | URL |
@@ -81,7 +84,7 @@ amounts use *Baloo 2 / Baloo Tammudu 2*, a warm display face that covers English
 Service status (Hindsight, Groq) lives in **My account → Connections**.
 
 ## Built for workers who can't read easily
-- **Ravi's story:** a 5-step picture story (with read-aloud) opens on first visit and from the ▶ button.
+- **How HakDaar works:** a 6-step guide to the features (with read-aloud), from the log-in page and the ▶ button.
 - **HakDaar speaks first:** on login a *welcome-back* message is written from Hindsight memory plus exact
   **follow-up nudges** ("Suresh Constructions still owes you ₹1,200 · 5 days since the last update. Did they pay?")
   with big **✅ Yes, paid / ❌ Not yet** answers.
@@ -195,7 +198,9 @@ workers. SQLite holds the *numbers*. Money needs exact arithmetic, and memory ne
 | Method | Path | What it does |
 |---|---|---|
 | GET | `/health` | Checks that Hindsight and Groq are reachable |
-| POST | `/auth/register` | Create an account `{name, phone, pin (4 digits), language}` |
+| POST | `/auth/register` | Create an account `{name, phone, pin, pin_confirm, language, recovery_question (1-4), recovery_answer, accept_terms}` |
+| POST | `/auth/recovery-question` | `{phone}` → which security question the account uses |
+| POST | `/auth/reset-pin` | `{phone, answer, new_pin}`: reset the PIN without SMS (rate-limited) |
 | POST | `/auth/login` | `{phone, pin}` → worker |
 | GET / POST | `/workers` | List workers / create `{name, language: en\|te\|hi, phone?}` |
 | GET | `/workers/{id}` | One worker (used to restore a login session) |

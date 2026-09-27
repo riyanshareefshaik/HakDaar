@@ -213,14 +213,43 @@ def test_change_language(client, fake):
     assert client.patch(f"/workers/{w['id']}", json={"language": "te"}).json()["language"] == "te"
 
 
+REG = {"name": "Ravi", "phone": "+91 98765 43210", "pin": "1234", "pin_confirm": "1234", "language": "te",
+       "recovery_question": 3, "recovery_answer": " Suresh  Constructions ", "accept_terms": True}
+
+
 def test_register_login(client, fake):
-    r = client.post("/auth/register", json={"name": "Ravi", "phone": "+91 98765 43210", "pin": "1234", "language": "te"})
-    assert r.status_code == 201 and "pin_hash" not in r.json() and r.json()["phone"] == "9876543210"
-    assert client.post("/auth/register", json={"name": "X", "phone": "9876543210", "pin": "1111"}).status_code == 409
+    r = client.post("/auth/register", json=REG)
+    assert r.status_code == 201 and "pin_hash" not in r.json() and "recovery_hash" not in r.json()
+    assert r.json()["phone"] == "9876543210"
+    assert client.post("/auth/register", json={**REG, "name": "X"}).status_code == 409
     assert client.post("/auth/login", json={"phone": "98765 43210", "pin": "1234"}).json()["name"] == "Ravi"
     assert client.post("/auth/login", json={"phone": "9876543210", "pin": "9999"}).status_code == 401
     assert client.post("/auth/login", json={"phone": "9876543210", "pin": "12a4"}).status_code == 422
     assert all("pin_hash" not in w for w in client.get("/workers").json())
+
+
+def test_register_validation(client, fake):
+    other = {**REG, "phone": "9111111111"}
+    assert "match" in client.post("/auth/register", json={**other, "pin_confirm": "4321"}).json()["detail"]
+    assert "Terms" in client.post("/auth/register", json={**other, "accept_terms": False}).json()["detail"]
+    assert client.post("/auth/register", json={**other, "recovery_answer": None}).status_code == 422
+    assert client.post("/auth/register", json={**other, "phone": "12345"}).status_code == 422
+
+
+def test_forgot_pin_with_security_question(client, fake):
+    client.post("/auth/register", json=REG)
+    assert client.post("/auth/recovery-question", json={"phone": "9876543210"}).json() == {"question": 3}
+    assert client.post("/auth/recovery-question", json={"phone": "9000000000"}).status_code == 404
+    bad = client.post("/auth/reset-pin", json={"phone": "9876543210", "answer": "metro", "new_pin": "5555"})
+    assert bad.status_code == 401
+    ok = client.post("/auth/reset-pin", json={"phone": "9876543210", "answer": "suresh constructions", "new_pin": "5555"})
+    assert ok.json() == {"ok": True}
+    assert client.post("/auth/login", json={"phone": "9876543210", "pin": "5555"}).status_code == 200
+    assert client.post("/auth/login", json={"phone": "9876543210", "pin": "1234"}).status_code == 401
+    for _ in range(5):
+        client.post("/auth/reset-pin", json={"phone": "9876543210", "answer": "nope", "new_pin": "1111"})
+    assert client.post("/auth/reset-pin", json={"phone": "9876543210", "answer": "suresh constructions",
+                                                 "new_pin": "1111"}).status_code == 429
 
 
 def test_fixed_bonus_counts_in_ledger(client, fake):

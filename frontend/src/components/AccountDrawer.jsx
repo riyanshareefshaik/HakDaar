@@ -4,7 +4,7 @@ import { Avatar } from './Header'
 import { AlertsCard, MemoriesCard } from './LedgerPanel'
 
 /** Slide-over "My account": profile, what HakDaar has learned, employer warnings, log out. */
-export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck }) {
+export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck, onOpenLegal }) {
   const [tab, setTab] = useState(section || 'memories')
   useEffect(() => { if (open && section) setTab(section) }, [open, section])
   useEffect(() => {
@@ -60,6 +60,10 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
             className="flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-xs text-muted/80 transition hover:text-danger">
             <Trash2 className="size-3.5" /> {s.resetAll} (demo)
           </button>
+          <p className="flex gap-3 px-3 pt-1 text-xs text-muted">
+            <button onClick={() => onOpenLegal('terms')} className="hover:text-ink hover:underline">{s.terms}</button>
+            <button onClick={() => onOpenLegal('privacy')} className="hover:text-ink hover:underline">{s.privacy}</button>
+          </p>
         </div>
       </aside>
     </div>

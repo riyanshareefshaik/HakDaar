@@ -85,6 +85,10 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
         # Lightweight migrations for databases created by earlier versions.
         _add_column(conn, "workers", "pin_hash", "pin_hash TEXT")
+        # Free PIN recovery (no paid SMS OTP): a security question chosen at sign-up + hashed answer.
+        _add_column(conn, "workers", "recovery_question", "recovery_question INTEGER")
+        _add_column(conn, "workers", "recovery_hash", "recovery_hash TEXT")
+        _add_column(conn, "workers", "terms_accepted_at", "terms_accepted_at TEXT")
         # 'day' = promised daily rate; 'fixed' = agreed lump sum / bonus for work already done.
         _add_column(conn, "events", "basis", "basis TEXT NOT NULL DEFAULT 'day'")
 
@@ -122,14 +126,29 @@ def check_pin(pin: str, stored: str | None) -> bool:
     return hmac.compare_digest(hash_pin(pin, salt), stored)
 
 
-def create_worker(name: str, language: str, phone: str | None = None, pin: str | None = None) -> dict:
+def normalize_answer(answer: str) -> str:
+    """'  Warangal ' == 'warangal': answers are compared case- and space-insensitively."""
+    return " ".join(answer.lower().split())
+
+
+def create_worker(name: str, language: str, phone: str | None = None, pin: str | None = None,
+                  recovery_question: int | None = None, recovery_answer: str | None = None,
+                  terms_accepted: bool = False) -> dict:
     wid = new_worker_id(name)
     with connect() as conn:
         conn.execute(
-            "INSERT INTO workers (id, name, language, phone, pin_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (wid, name, language, phone, hash_pin(pin) if pin else None, now_iso()),
+            """INSERT INTO workers (id, name, language, phone, pin_hash, recovery_question, recovery_hash,
+                                    terms_accepted_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (wid, name, language, phone, hash_pin(pin) if pin else None, recovery_question,
+             hash_pin(normalize_answer(recovery_answer)) if recovery_answer else None,
+             now_iso() if terms_accepted else None, now_iso()),
         )
     return get_worker(wid)
+
+
+def set_pin(worker_id: str, pin: str) -> None:
+    with connect() as conn:
+        conn.execute("UPDATE workers SET pin_hash = ? WHERE id = ?", (hash_pin(pin), worker_id))
 
 
 def find_by_phone(phone: str) -> dict | None:

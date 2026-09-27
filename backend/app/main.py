@@ -61,7 +61,21 @@ class RegisterIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     phone: str = Field(min_length=6, max_length=20)
     pin: str = Field(pattern=r"^\d{4}$")
+    pin_confirm: str | None = Field(default=None, pattern=r"^\d{4}$")
     language: Literal["en", "te", "hi"] = "en"
+    recovery_question: int | None = Field(default=None, ge=1, le=4)
+    recovery_answer: str | None = Field(default=None, min_length=2, max_length=80)
+    accept_terms: bool = False
+
+
+class RecoveryLookupIn(BaseModel):
+    phone: str = Field(min_length=6, max_length=20)
+
+
+class ResetPinIn(BaseModel):
+    phone: str = Field(min_length=6, max_length=20)
+    answer: str = Field(min_length=1, max_length=80)
+    new_pin: str = Field(pattern=r"^\d{4}$")
 
 
 class LoginIn(BaseModel):
@@ -123,11 +137,59 @@ async def register(body: RegisterIn):
     """Create an account with a phone number and a 4-digit PIN (simple enough for any phone user).
     Note: hackathon-grade identification, not production authentication."""
     phone = _norm_phone(body.phone)
+    if len(phone) != 10:
+        raise HTTPException(422, "Enter a 10-digit mobile number.")
+    if body.pin_confirm is not None and body.pin_confirm != body.pin:
+        raise HTTPException(422, "The two PINs do not match.")
+    if not body.accept_terms:
+        raise HTTPException(422, "Please accept the Terms of Use and Privacy Policy.")
+    if bool(body.recovery_question) != bool(body.recovery_answer and body.recovery_answer.strip()):
+        raise HTTPException(422, "Choose a security question and write its answer.")
     if db.find_by_phone(phone):
         raise HTTPException(409, "This phone number already has an account. Please log in.")
-    w = db.create_worker(body.name.strip(), body.language, phone, body.pin)
+    w = db.create_worker(body.name.strip(), body.language, phone, body.pin,
+                         recovery_question=body.recovery_question, recovery_answer=body.recovery_answer,
+                         terms_accepted=True)
     await memory.ensure_bank(memory.worker_bank(w["id"]))
     return w
+
+
+# Free PIN recovery (no paid SMS): answer the security question chosen at sign-up.
+# A simple in-memory limit stops someone from guessing answers endlessly.
+_reset_failures: dict[str, list[float]] = {}
+RESET_MAX_FAILURES, RESET_WINDOW_S = 5, 15 * 60
+
+
+def _reset_blocked(phone: str) -> bool:
+    import time
+    recent = [t for t in _reset_failures.get(phone, []) if time.time() - t < RESET_WINDOW_S]
+    _reset_failures[phone] = recent
+    return len(recent) >= RESET_MAX_FAILURES
+
+
+@app.post("/auth/recovery-question")
+def recovery_question(body: RecoveryLookupIn):
+    row = db.find_by_phone(_norm_phone(body.phone))
+    if not row:
+        raise HTTPException(404, "No account found for this phone number.")
+    if not row.get("recovery_question") or not row.get("recovery_hash"):
+        raise HTTPException(409, "This account has no security question. Please create a new account.")
+    return {"question": row["recovery_question"]}
+
+
+@app.post("/auth/reset-pin")
+def reset_pin(body: ResetPinIn):
+    import time
+    phone = _norm_phone(body.phone)
+    if _reset_blocked(phone):
+        raise HTTPException(429, "Too many wrong answers. Please try again after 15 minutes.")
+    row = db.find_by_phone(phone)
+    if not row or not row.get("recovery_hash") or not db.check_pin(db.normalize_answer(body.answer), row["recovery_hash"]):
+        _reset_failures.setdefault(phone, []).append(time.time())
+        raise HTTPException(401, "That answer does not match. Please try again.")
+    db.set_pin(row["id"], body.new_pin)
+    _reset_failures.pop(phone, None)
+    return {"ok": True}
 
 
 @app.post("/auth/login")
