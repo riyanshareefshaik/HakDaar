@@ -43,9 +43,29 @@ async def check_groq() -> dict:
             return {"ok": False, "model": model, "error": "Groq rejected the API key (401)"}
         r.raise_for_status()
         ids = {m["id"] for m in r.json().get("data", [])}
-        if model not in ids:
-            return {"ok": False, "model": model,
-                    "error": f"Model '{model}' not available on Groq. Change GROQ_MODEL in .env."}
-        return {"ok": True, "model": model}
+        hs_model = settings.hindsight_llm_model
+        hs_note = None if hs_model in ids else (
+            f"Hindsight's model '{hs_model}' is not on your Groq account, so memory can't learn. "
+            f"Set HINDSIGHT_LLM_MODEL in .env to one of available_models and re-run ./scripts/start-hindsight.sh")
+        if model in ids:
+            out = {"ok": True, "model": model}
+            if hs_note:
+                out.update(hindsight_model_warning=hs_note, available_models=None)
+                from .llm import chat_models
+                out["available_models"] = chat_models(ids)
+            return out
+        # Not fatal: the backend automatically falls back to a model this account has.
+        from .llm import chat_models, choose_model
+        fallback = choose_model(ids)
+        return {
+            "ok": fallback is not None,
+            "model": fallback or model,
+            "configured_model": model,
+            "warning": (f"GROQ_MODEL '{model}' is not available on your Groq account; using '{fallback}'. "
+                        f"Set GROQ_MODEL={fallback} in .env to silence this.") if fallback else None,
+            "error": None if fallback else f"Model '{model}' not available and no chat model found on Groq.",
+            "available_models": chat_models(ids),
+            "hindsight_model_warning": hs_note,
+        }
     except httpx.HTTPError as e:
         return {"ok": False, "model": model, "error": f"Cannot reach Groq: {e}"}

@@ -201,7 +201,7 @@ scripts/            start-hindsight.sh, start-backend.sh, start-frontend.sh
 | Variable | Default | Purpose |
 |---|---|---|
 | `GROQ_API_KEY` | — | Required. Used by the backend and passed to Hindsight |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Model for extraction and replies |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Model for extraction and replies (falls back automatically to one your account has; `/health` lists them) |
 | `HINDSIGHT_URL` | `http://localhost:8888` | Hindsight API |
 | `HINDSIGHT_LLM_MODEL` | `openai/gpt-oss-20b` | Model Hindsight uses internally |
 | `DATABASE_PATH` | `hakdaar.db` | SQLite file (relative to `backend/`) |

@@ -18,6 +18,8 @@ class Settings:
     groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
     hindsight_url: str = os.getenv("HINDSIGHT_URL", "http://localhost:8888").rstrip("/")
+    # Only used by /health to check the model the Hindsight container was started with.
+    hindsight_llm_model: str = os.getenv("HINDSIGHT_LLM_MODEL", "openai/gpt-oss-20b")
 
     # Relative paths are resolved against backend/ so the DB lands in a predictable place.
     database_path: Path = BACKEND_DIR / os.getenv("DATABASE_PATH", "hakdaar.db")

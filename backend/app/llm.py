@@ -39,8 +39,25 @@ def client() -> AsyncOpenAI:
 
 
 # Tried in order if the configured GROQ_MODEL isn't available on this Groq account.
-FALLBACK_MODELS = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.1-8b-instant"]
+FALLBACK_MODELS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b",
+                   "meta-llama/llama-4-maverick-17b-128e-instruct", "llama-3.1-8b-instant"]
 _active_model: str | None = None
+
+
+# Model ids that are not chat/text-generation models.
+_NON_CHAT = ("whisper", "tts", "guard", "embed", "orpheus", "playai", "distil")
+
+
+def chat_models(ids) -> list[str]:
+    return sorted(i for i in ids if not any(x in i.lower() for x in _NON_CHAT))
+
+
+def choose_model(available: set[str], exclude: str | None = None) -> str | None:
+    """Best chat model this Groq account actually has: known-good list first, then any chat model."""
+    for m in FALLBACK_MODELS:
+        if m in available and m != exclude:
+            return m
+    return next((m for m in chat_models(available) if m != exclude), None)
 
 
 async def _pick_fallback_model(bad: str) -> str | None:
@@ -48,13 +65,29 @@ async def _pick_fallback_model(bad: str) -> str | None:
         available = {m.id async for m in client().models.list()}
     except Exception:  # noqa: BLE001 - any failure here just means "no fallback"
         return None
-    return next((m for m in FALLBACK_MODELS if m in available and m != bad), None)
+    return choose_model(available, exclude=bad)
 
 
 def _groq_error_text(e: APIStatusError) -> str:
     body = e.body if isinstance(e.body, dict) else {}
     err = body.get("error", body)
     return (err.get("message") if isinstance(err, dict) else None) or str(e.message)
+
+
+def _model_params(model: str, max_tokens: int) -> dict:
+    """Reasoning models spend tokens 'thinking' before answering; keep that short and hidden."""
+    m = model.lower()
+    if "gpt-oss" in m:
+        return {"max_tokens": max_tokens * 4, "extra_body": {"reasoning_effort": "low"}}
+    if "qwen3" in m or "deepseek-r1" in m:
+        return {"max_tokens": max_tokens * 4, "extra_body": {"reasoning_format": "hidden"}}
+    return {"max_tokens": max_tokens}
+
+
+def _strip_thinking(text: str) -> str:
+    if "</think>" in text:
+        text = text.split("</think>", 1)[1]
+    return text.strip()
 
 
 async def _chat(messages: list[dict], *, json_mode: bool, temperature: float, max_tokens: int) -> str:
@@ -64,9 +97,9 @@ async def _chat(messages: list[dict], *, json_mode: bool, temperature: float, ma
     for attempt in range(2):
         try:
             resp = await client().chat.completions.create(
-                model=model, messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs,
+                model=model, messages=messages, temperature=temperature, **_model_params(model, max_tokens), **kwargs,
             )
-            return resp.choices[0].message.content or ""
+            return _strip_thinking(resp.choices[0].message.content or "")
         except APIStatusError as e:
             detail = _groq_error_text(e)
             log.warning("Groq error %s for model %s: %s", e.status_code, model, detail)
