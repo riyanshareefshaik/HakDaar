@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# HakDaar
+backend/*.db
+node_modules/
+frontend/dist/
