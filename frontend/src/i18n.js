@@ -143,4 +143,56 @@ const S = {
   },
 }
 
-export const t = (lang) => S[lang] || S.en
+// Login, account and ledger-help strings.
+const EXTRA = {
+  en: {
+    login: 'Log in', createAccount: 'Create account', phone: 'Phone number', pin: '4-digit PIN',
+    pinHint: 'You will use this PIN to log in', newHere: 'New here?', haveAccount: 'Already have an account?',
+    logout: 'Log out', account: 'My account', profile: 'Profile', memoryBank: 'Memory bank',
+    deleteAccount: 'Delete my account', confirmDeleteAccount: 'Delete your account, wage records and memories?',
+    ledgerTab: 'Ledger', close: 'Close',
+    howCalc: 'How is this calculated?',
+    howCalcLines: [
+      ['Earned', 'Promised daily wage × days worked, plus any agreed fixed amount or bonus.'],
+      ['Paid', 'All the money you told HakDaar you received.'],
+      ['Owed to you', 'Earned − Paid. This is what the employer still has to give you.'],
+    ],
+    exactNote: 'Calculated exactly by HakDaar, never guessed by the AI.',
+    fixed: 'Fixed / bonus', entryFixed: 'Agreed fixed',
+    alertsCount: (n) => `${n} warning${n === 1 ? '' : 's'}`,
+  },
+  te: {
+    login: 'లాగిన్', createAccount: 'ఖాతా తెరవండి', phone: 'ఫోన్ నంబర్', pin: '4 అంకెల PIN',
+    pinHint: 'లాగిన్ కోసం ఈ PIN వాడతారు', newHere: 'కొత్తవారా?', haveAccount: 'ఇప్పటికే ఖాతా ఉందా?',
+    logout: 'లాగ్ అవుట్', account: 'నా ఖాతా', profile: 'ప్రొఫైల్', memoryBank: 'జ్ఞాపక బ్యాంక్',
+    deleteAccount: 'నా ఖాతా తొలగించు', confirmDeleteAccount: 'మీ ఖాతా, లెక్కలు, జ్ఞాపకాలు తొలగించాలా?',
+    ledgerTab: 'లెక్క', close: 'మూసివేయి',
+    howCalc: 'ఇది ఎలా లెక్కిస్తారు?',
+    howCalcLines: [
+      ['సంపాదన', 'రోజు కూలి × పని రోజులు, దానికి ఒప్పుకున్న బోనస్/స్థిర మొత్తం కలిపి.'],
+      ['అందింది', 'మీకు వచ్చిందని మీరు చెప్పిన మొత్తం డబ్బు.'],
+      ['మీకు రావాలి', 'సంపాదన − అందింది. యజమాని ఇంకా ఇవ్వాల్సింది.'],
+    ],
+    exactNote: 'HakDaar సరిగ్గా లెక్కిస్తుంది, AI ఊహించదు.',
+    fixed: 'స్థిర / బోనస్', entryFixed: 'ఒప్పుకున్న మొత్తం',
+    alertsCount: (n) => `${n} హెచ్చరికలు`,
+  },
+  hi: {
+    login: 'लॉग इन', createAccount: 'खाता बनाएँ', phone: 'फ़ोन नंबर', pin: '4 अंकों का PIN',
+    pinHint: 'लॉग इन के लिए यही PIN इस्तेमाल होगा', newHere: 'नए हैं?', haveAccount: 'पहले से खाता है?',
+    logout: 'लॉग आउट', account: 'मेरा खाता', profile: 'प्रोफ़ाइल', memoryBank: 'याददाश्त बैंक',
+    deleteAccount: 'मेरा खाता हटाएँ', confirmDeleteAccount: 'अपना खाता, हिसाब और यादें हटाएँ?',
+    ledgerTab: 'हिसाब', close: 'बंद करें',
+    howCalc: 'यह कैसे गिना जाता है?',
+    howCalcLines: [
+      ['कमाई', 'रोज़ की मज़दूरी × काम के दिन, और तय बोनस/एकमुश्त रकम।'],
+      ['मिला', 'जितने पैसे आपने बताए कि आपको मिले।'],
+      ['आपका बाकी', 'कमाई − मिला। मालिक को अभी इतना देना है।'],
+    ],
+    exactNote: 'HakDaar ठीक-ठीक गिनता है, AI अंदाज़ा नहीं लगाता।',
+    fixed: 'तय / बोनस', entryFixed: 'तय रकम',
+    alertsCount: (n) => `${n} चेतावनी`,
+  },
+}
+
+export const t = (lang) => ({ ...(S[lang] || S.en), ...(EXTRA[lang] || EXTRA.en) })

@@ -210,3 +210,26 @@ def test_worker_lookup_by_name(client, fake):
 def test_change_language(client, fake):
     w = client.post("/workers", json={"name": "Anil", "language": "en"}).json()
     assert client.patch(f"/workers/{w['id']}", json={"language": "te"}).json()["language"] == "te"
+
+
+def test_register_login(client, fake):
+    r = client.post("/auth/register", json={"name": "Ravi", "phone": "+91 98765 43210", "pin": "1234", "language": "te"})
+    assert r.status_code == 201 and "pin_hash" not in r.json() and r.json()["phone"] == "9876543210"
+    assert client.post("/auth/register", json={"name": "X", "phone": "9876543210", "pin": "1111"}).status_code == 409
+    assert client.post("/auth/login", json={"phone": "98765 43210", "pin": "1234"}).json()["name"] == "Ravi"
+    assert client.post("/auth/login", json={"phone": "9876543210", "pin": "9999"}).status_code == 401
+    assert client.post("/auth/login", json={"phone": "9876543210", "pin": "12a4"}).status_code == 422
+    assert all("pin_hash" not in w for w in client.get("/workers").json())
+
+
+def test_fixed_bonus_counts_in_ledger(client, fake):
+    w = client.post("/workers", json={"name": "Mathew", "language": "en"}).json()["id"]
+    r = say(client, fake, w, ExtractedEvent(type="promise", employer_name="Metro Builders", amount=2000, basis="fixed"))
+    row = r["ledger"][0]
+    assert (row["amount_earned"], row["amount_owed"], row["status"]) == (2000, 2000, "owed")
+    say(client, fake, w, ExtractedEvent(type="promise", amount=600))
+    say(client, fake, w, ExtractedEvent(type="work_day", days=5))
+    r = say(client, fake, w, ExtractedEvent(type="payment", amount=3000))
+    row = r["ledger"][0]
+    assert (row["rate_per_day"], row["fixed_amount"], row["amount_earned"], row["amount_owed"]) == (600, 2000, 5000, 2000)
+    assert "+ ₹2,000 fixed" in [a for a in r["alerts"] if a["type"] == "underpayment"][0]["message"]

@@ -75,7 +75,7 @@ def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str) -> tup
             if ev.amount is None or ev.amount <= 0:
                 others.append({**base, "type": "other", "notes": ev.notes or "promise without a rate"})
                 continue
-            rows.append({**base, "type": "promise", "amount": round(ev.amount), "days": None})
+            rows.append({**base, "type": "promise", "amount": round(ev.amount), "days": None, "basis": ev.basis})
 
         elif ev.type == "work_day":
             days = ev.days if ev.days is not None else 1
@@ -135,8 +135,11 @@ def build_alerts(worker_id: str, current_ledger: list[dict], focus: set[str]) ->
                 "employer_name": row["employer_name"],
                 "amount_owed": row["amount_owed"],
                 "message": (f"{row['employer_name']} owes you {ledger.format_inr(row['amount_owed'])} "
-                            f"({row['days_worked']} days x {ledger.format_inr(row['rate_per_day'])} = "
-                            f"{ledger.format_inr(row['amount_earned'])}, paid {ledger.format_inr(row['amount_paid'])})."),
+                            f"(earned {ledger.format_inr(row['amount_earned'])}"
+                            + (f" = {row['days_worked']} days x {ledger.format_inr(row['rate_per_day'])}"
+                               if row["rate_per_day"] is not None and row["days_worked"] else "")
+                            + (f" + {ledger.format_inr(row['fixed_amount'])} fixed" if row.get("fixed_amount") else "")
+                            + f", paid {ledger.format_inr(row['amount_paid'])})."),
             })
     for row in current_ledger:
         a = reputation_alert(row["employer_name"], worker_id)
@@ -146,12 +149,16 @@ def build_alerts(worker_id: str, current_ledger: list[dict], focus: set[str]) ->
 
 
 def anonymised_report(row: dict, kind: str) -> str:
+    terms = []
+    if row["rate_per_day"] is not None:
+        terms.append(f"{ledger.format_inr(row['rate_per_day'])}/day for {row['days_worked']} days")
+    if row.get("fixed_amount"):
+        terms.append(f"a fixed {ledger.format_inr(row['fixed_amount'])}")
+    agreed = " plus ".join(terms) or "an agreed amount"
     if kind == "paid_ok":
-        return (f"A worker reported that {row['employer_name']} paid fully: promised "
-                f"{ledger.format_inr(row['rate_per_day'])}/day for {row['days_worked']} days and paid "
-                f"{ledger.format_inr(row['amount_paid'])}.")
-    return (f"A worker reported a short payment from {row['employer_name']}: promised "
-            f"{ledger.format_inr(row['rate_per_day'])}/day, worked {row['days_worked']} days "
+        return (f"A worker reported that {row['employer_name']} paid fully: agreed {agreed} "
+                f"(earned {ledger.format_inr(row['amount_earned'])}) and paid {ledger.format_inr(row['amount_paid'])}.")
+    return (f"A worker reported a short payment from {row['employer_name']}: agreed {agreed} "
             f"(earned {ledger.format_inr(row['amount_earned'])}), but was paid only "
             f"{ledger.format_inr(row['amount_paid'])}. Short by {ledger.format_inr(row['amount_owed'])}.")
 
@@ -203,7 +210,9 @@ def ledger_text(current_ledger: list[dict]) -> str:
             lines.append(f"- {r['employer_name']}: daily rate NOT KNOWN yet, days worked {r['days_worked']}, "
                          f"paid {ledger.format_inr(r['amount_paid'])}")
             continue
-        line = (f"- {r['employer_name']}: promised {ledger.format_inr(r['rate_per_day'])}/day, "
+        rate = f"promised {ledger.format_inr(r['rate_per_day'])}/day, " if r["rate_per_day"] is not None else ""
+        fixed = f"fixed/bonus {ledger.format_inr(r['fixed_amount'])}, " if r.get("fixed_amount") else ""
+        line = (f"- {r['employer_name']}: {rate}{fixed}"
                 f"days worked {r['days_worked']}, earned {ledger.format_inr(r['amount_earned'])}, "
                 f"paid {ledger.format_inr(r['amount_paid'])}, owed {ledger.format_inr(r['amount_owed'])}")
         if r["advance"]:
@@ -215,7 +224,9 @@ def ledger_text(current_ledger: list[dict]) -> str:
 def noted_text(stored: list[dict], others: list[dict]) -> str:
     lines = []
     for e in stored:
-        if e["type"] == "promise":
+        if e["type"] == "promise" and e.get("basis") == "fixed":
+            lines.append(f"- {e['employer_name']} agreed a fixed {ledger.format_inr(e['amount'])} for work done")
+        elif e["type"] == "promise":
             lines.append(f"- {e['employer_name']} promised {ledger.format_inr(e['amount'])}/day")
         elif e["type"] == "work_day":
             lines.append(f"- worked {e['days']:g} day(s) for {e['employer_name']}")
@@ -234,6 +245,8 @@ def memories_text(mems: list[dict]) -> str:
 
 
 def event_to_memory(e: dict) -> str:
+    if e["type"] == "promise" and e.get("basis") == "fixed":
+        return f"{e['employer_name']} agreed to pay a fixed amount of {ledger.format_inr(e['amount'])} for work done."
     if e["type"] == "promise":
         return f"{e['employer_name']} promised a daily wage of {ledger.format_inr(e['amount'])} per day."
     if e["type"] == "work_day":

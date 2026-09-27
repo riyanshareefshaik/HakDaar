@@ -1,22 +1,41 @@
 import { useState } from 'react'
 import {
-  AlertTriangle, BadgeCheck, Banknote, Brain, BriefcaseBusiness, Building2, CalendarCheck, ChevronDown, CircleAlert,
+  AlertTriangle, BadgeCheck, Banknote, Brain, BriefcaseBusiness, Building2, CalendarCheck, ChevronDown, CircleAlert, CircleHelp, Gift,
   Loader2, MessageSquareQuote, Sparkles, Undo2, Users, Wallet,
 } from 'lucide-react'
 import { api, inr } from '../api'
 import { useCountUp } from '../hooks'
 
-export default function MemoryPanel({ s, worker, ledger, recalled, learned, newIds, memoryError, alerts, loading, learning, onUndo }) {
+/** Right column: the wage ledger (the numbers) and how they are calculated. */
+export default function LedgerPanel({ s, ledger, loading, onUndo }) {
   return (
     <div className="h-full space-y-4 overflow-y-auto scroll-thin p-4">
-      <h2 className="flex items-center gap-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">
-        <Brain className="size-4" /> {s.remembers}
-      </h2>
       <LedgerCard s={s} ledger={ledger} loading={loading} onUndo={onUndo} />
-      <MemoriesCard s={s} worker={worker} recalled={recalled} learned={learned} newIds={newIds}
-        error={memoryError} loading={loading} learning={learning} />
-      <AlertsCard s={s} alerts={alerts} loading={loading} />
+      <HowCalculated s={s} />
     </div>
+  )
+}
+
+function HowCalculated({ s }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="card overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 p-4 text-left font-semibold">
+        <CircleHelp className="size-5 text-brand" />
+        <span className="flex-1">{s.howCalc}</span>
+        <ChevronDown className={`size-4 text-muted transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="space-y-2 px-4 pb-4 animate-fade-up">
+          {s.howCalcLines.map(([k, v], i) => (
+            <p key={k} className={`rounded-xl p-2.5 text-sm ${i === 2 ? 'bg-danger-soft' : 'bg-sand/70'}`}>
+              <b className={i === 2 ? 'text-danger' : ''}>{k}</b> = {v}
+            </p>
+          ))}
+          <p className="flex items-center gap-1.5 text-xs text-muted"><BadgeCheck className="size-3.5 text-brand" /> {s.exactNote}</p>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -36,7 +55,7 @@ function Skeleton({ rows = 2 }) {
 
 // ---------------------------------------------------------------- ledger
 
-function LedgerCard({ s, ledger, loading, onUndo }) {
+export function LedgerCard({ s, ledger, loading, onUndo }) {
   const employers = ledger?.employers || []
   return (
     <section className="card p-4">
@@ -78,9 +97,10 @@ function EmployerRow({ r, s, onUndo }) {
         )}
       </div>
 
-      <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
-        <Stat label={s.promised} value={unknown ? '?' : `${inr(r.rate_per_day)}${s.perDay}`} />
+      <dl className={`mt-2 grid gap-2 text-sm ${r.fixed_amount ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <Stat label={s.promised} value={r.rate_per_day == null ? '—' : `${inr(r.rate_per_day)}${s.perDay}`} />
         <Stat label={s.days} value={r.days_worked} />
+        {r.fixed_amount > 0 && <Stat label={s.fixed} value={inr(r.fixed_amount)} />}
         <Stat label={s.paid} value={inr(r.amount_paid)} />
       </dl>
 
@@ -93,7 +113,10 @@ function EmployerRow({ r, s, onUndo }) {
           </div>
           <p className="mt-1 flex justify-between text-xs text-muted">
             <span>{s.paid} {inr(r.amount_paid)}</span>
-            <span>{s.earned} {inr(r.amount_earned)} <span className="opacity-70">({r.days_worked} × {inr(r.rate_per_day)})</span></span>
+            <span>{s.earned} {inr(r.amount_earned)} <span className="opacity-70">({[
+              r.rate_per_day != null && r.days_worked ? `${r.days_worked} × ${inr(r.rate_per_day)}` : null,
+              r.fixed_amount ? inr(r.fixed_amount) : null,
+            ].filter(Boolean).join(' + ') || '0'})</span></span>
           </p>
         </div>
       )}
@@ -119,7 +142,9 @@ function EmployerRow({ r, s, onUndo }) {
 function EntryRow({ e, s, onUndo }) {
   const [busy, setBusy] = useState(false)
   const conf = {
-    promise: { icon: BriefcaseBusiness, label: s.entryPromise, value: `${inr(e.amount)}${s.perDay}` },
+    promise: e.basis === 'fixed'
+      ? { icon: Gift, label: s.entryFixed, value: inr(e.amount) }
+      : { icon: BriefcaseBusiness, label: s.entryPromise, value: `${inr(e.amount)}${s.perDay}` },
     work_day: { icon: CalendarCheck, label: s.entryWork, value: `${e.days} ${s.days}` },
     payment: { icon: Banknote, label: s.entryPay, value: inr(e.amount) },
   }[e.type]
@@ -149,7 +174,7 @@ function Stat({ label, value }) {
 
 // ---------------------------------------------------------------- memories
 
-function MemoriesCard({ s, recalled, learned, newIds, error, loading, learning }) {
+export function MemoriesCard({ s, recalled, learned, newIds, error, loading, learning }) {
   const [view, setView] = useState('learned')
   const items = view === 'recalled' ? recalled : learned.items
   return (
@@ -207,7 +232,7 @@ function MemoriesCard({ s, recalled, learned, newIds, error, loading, learning }
 
 // ---------------------------------------------------------------- alerts
 
-function AlertsCard({ s, alerts, loading }) {
+export function AlertsCard({ s, alerts, loading }) {
   const rep = alerts.filter((a) => a.type === 'employer_reputation')
   return (
     <section className="card p-4">

@@ -3,6 +3,9 @@
 Plain sqlite3 keeps the dependency list short. Every function opens its own
 short-lived connection, which is safe with FastAPI's threadpool.
 """
+import hashlib
+import hmac
+import secrets
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -71,9 +74,19 @@ def connect():
         conn.close()
 
 
+def _add_column(conn, table: str, column: str, ddl: str) -> None:
+    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        # Lightweight migrations for databases created by earlier versions.
+        _add_column(conn, "workers", "pin_hash", "pin_hash TEXT")
+        # 'day' = promised daily rate; 'fixed' = agreed lump sum / bonus for work already done.
+        _add_column(conn, "events", "basis", "basis TEXT NOT NULL DEFAULT 'day'")
 
 
 def reset_db() -> None:
@@ -92,28 +105,53 @@ def new_worker_id(name: str) -> str:
     return f"{slug}-{uuid.uuid4().hex[:6]}"
 
 
-def create_worker(name: str, language: str, phone: str | None = None) -> dict:
+# Never return pin_hash from the API.
+PUBLIC_COLS = "id, name, language, phone, created_at"
+
+
+def hash_pin(pin: str, salt: str | None = None) -> str:
+    salt = salt or secrets.token_hex(8)
+    digest = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
+    return f"{salt}${digest}"
+
+
+def check_pin(pin: str, stored: str | None) -> bool:
+    if not stored or "$" not in stored:
+        return False
+    salt, _ = stored.split("$", 1)
+    return hmac.compare_digest(hash_pin(pin, salt), stored)
+
+
+def create_worker(name: str, language: str, phone: str | None = None, pin: str | None = None) -> dict:
     wid = new_worker_id(name)
     with connect() as conn:
         conn.execute(
-            "INSERT INTO workers (id, name, language, phone, created_at) VALUES (?, ?, ?, ?, ?)",
-            (wid, name, language, phone, now_iso()),
+            "INSERT INTO workers (id, name, language, phone, pin_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (wid, name, language, phone, hash_pin(pin) if pin else None, now_iso()),
         )
     return get_worker(wid)
 
 
+def find_by_phone(phone: str) -> dict | None:
+    """Includes pin_hash; only for the login check."""
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM workers WHERE phone = ?", (phone,)).fetchone()
+        return dict(row) if row else None
+
+
 def list_workers() -> list[dict]:
     with connect() as conn:
-        return [dict(r) for r in conn.execute("SELECT * FROM workers ORDER BY rowid")]
+        return [dict(r) for r in conn.execute(f"SELECT {PUBLIC_COLS} FROM workers ORDER BY rowid")]
 
 
 def get_worker(worker_id: str) -> dict | None:
     """Look up by id; as a convenience for testing/demo, a unique name ('ravi') also works."""
     with connect() as conn:
-        row = conn.execute("SELECT * FROM workers WHERE id = ?", (worker_id,)).fetchone()
+        row = conn.execute(f"SELECT {PUBLIC_COLS} FROM workers WHERE id = ?", (worker_id,)).fetchone()
         if row:
             return dict(row)
-        rows = conn.execute("SELECT * FROM workers WHERE lower(name) = lower(?)", (worker_id.strip(),)).fetchall()
+        rows = conn.execute(f"SELECT {PUBLIC_COLS} FROM workers WHERE lower(name) = lower(?)",
+                            (worker_id.strip(),)).fetchall()
         return dict(rows[0]) if len(rows) == 1 else None
 
 
@@ -155,10 +193,10 @@ def add_event(worker_id: str, event: dict, message_id: int | None = None,
               created_at: str | None = None) -> dict:
     with connect() as conn:
         cur = conn.execute(
-            """INSERT INTO events (worker_id, type, employer_name, amount, days, date, notes, message_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO events (worker_id, type, employer_name, amount, days, date, notes, basis, message_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (worker_id, event["type"], event["employer_name"], event.get("amount"), event.get("days"),
-             event.get("date"), event.get("notes"), message_id, created_at or now_iso()),
+             event.get("date"), event.get("notes"), event.get("basis") or "day", message_id, created_at or now_iso()),
         )
         row = conn.execute("SELECT * FROM events WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)

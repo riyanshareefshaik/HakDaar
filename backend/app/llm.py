@@ -136,6 +136,7 @@ class ExtractedEvent(BaseModel):
     is_total: bool = False           # "I have worked 8 days in total" / "he has paid 5000 in all"
     pays_full_balance: bool = False  # "he paid me everything he owed"
     is_late: bool = False            # payment came later than promised
+    basis: str = Field(default="day", pattern="^(day|fixed)$")  # promise: daily rate or fixed amount
 
     @field_validator("amount", "days", mode="before")
     @classmethod
@@ -159,10 +160,16 @@ Return ONLY JSON: {{"events": [ ... ]}}. Each event:
   "notes": short English note or null,
   "is_total": boolean,
   "pays_full_balance": boolean,
-  "is_late": boolean}}
+  "is_late": boolean,
+  "basis": "day" | "fixed"}}
 
 Rules:
-- promise: employer promised a DAILY rate. amount = rupees per day. If a weekly/monthly/lump-sum amount is promised, put it in notes and set type "other".
+- promise: employer promised money.
+  basis "day": a DAILY rate; amount = rupees per day.
+  basis "fixed": a fixed amount / bonus / lump sum for work the worker says they have ALREADY DONE
+  (e.g. "they promised 2000 bonus for the extra hours I worked"); amount = that total.
+  A weekly/monthly salary, or a fixed amount for work not yet done: type "other" with a note.
+- Amounts are rupees. If the worker uses another currency, still copy the number and mention the currency in notes.
 - work_day: the worker worked. days = number of days worked mentioned in THIS message (default 1 for "I worked today"). Half day = 0.5.
   If the worker states a running TOTAL ("I have worked 8 days so far"), set is_total true and days = that total.
 - payment: the worker received money. amount = rupees received in THIS message.

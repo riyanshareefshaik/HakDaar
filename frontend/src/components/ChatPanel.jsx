@@ -16,7 +16,7 @@ const QUICK = [
   { key: 'owed', icon: CircleHelp, sendNow: true },
 ]
 
-export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning }) {
+export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory }) {
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
   const endRef = useRef(null)
@@ -101,7 +101,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
         ) : (
           <ul className="mx-auto max-w-3xl space-y-4">
             {messages.map((m, i) => (
-              <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag}
+              <Bubble key={m.id ?? `local-${i}`} m={m} s={s} onRetry={onRetry} onUndo={onUndo} speechTag={speechTag} onOpenMemory={onOpenMemory}
                 showLearning={i === lastAssistant && !sending ? learning : null} />
             ))}
             {sending && (
@@ -160,7 +160,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   )
 }
 
-function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning }) {
+function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning, onOpenMemory }) {
   const [speaking, setSpeaking] = useState(false)
 
   if (m.role === 'error') {
@@ -220,9 +220,9 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning }) {
           <span className="flex items-center gap-1 text-brand"><Loader2 className="size-3.5 animate-spin" /> {s.learning}</span>
         )}
         {typeof showLearning === 'number' && showLearning > 0 && (
-          <span className="flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 font-semibold text-brand animate-fade-up">
+          <button onClick={onOpenMemory} className="flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 font-semibold text-brand transition animate-fade-up hover:bg-brand hover:text-white">
             <Sparkles className="size-3.5" /> {s.learnedNew(showLearning)}
-          </span>
+          </button>
         )}
       </div>
     </li>
@@ -232,7 +232,8 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, showLearning }) {
 function EventChip({ e, s, onUndo }) {
   const [busy, setBusy] = useState(false)
   let label
-  if (e.type === 'promise') label = `${e.employer_name}: ${inr(e.amount)}${s.perDay}`
+  if (e.type === 'promise' && e.basis === 'fixed') label = `${e.employer_name}: ${s.entryFixed} ${inr(e.amount)}`
+  else if (e.type === 'promise') label = `${e.employer_name}: ${inr(e.amount)}${s.perDay}`
   else if (e.type === 'work_day') label = `+${e.days} ${s.days} · ${e.employer_name}`
   else label = `${s.paid} ${inr(e.amount)} · ${e.employer_name}`
 

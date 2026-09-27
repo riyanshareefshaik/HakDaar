@@ -57,6 +57,23 @@ class WorkerIn(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
 
 
+class RegisterIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    phone: str = Field(min_length=6, max_length=20)
+    pin: str = Field(pattern=r"^\d{4}$")
+    language: Literal["en", "te", "hi"] = "en"
+
+
+class LoginIn(BaseModel):
+    phone: str = Field(min_length=6, max_length=20)
+    pin: str = Field(pattern=r"^\d{4}$")
+
+
+def _norm_phone(phone: str) -> str:
+    digits = "".join(c for c in phone if c.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits  # '+91 98765 43210' == '9876543210'
+
+
 class ChatIn(BaseModel):
     worker_id: str = Field(description="Worker id (e.g. from GET /workers) or a unique worker name like 'Ravi'",
                            examples=["Ravi"])
@@ -101,6 +118,26 @@ async def create_worker(body: WorkerIn):
     return w
 
 
+@app.post("/auth/register", status_code=201)
+async def register(body: RegisterIn):
+    """Create an account with a phone number and a 4-digit PIN (simple enough for any phone user).
+    Note: hackathon-grade identification, not production authentication."""
+    phone = _norm_phone(body.phone)
+    if db.find_by_phone(phone):
+        raise HTTPException(409, "This phone number already has an account. Please log in.")
+    w = db.create_worker(body.name.strip(), body.language, phone, body.pin)
+    await memory.ensure_bank(memory.worker_bank(w["id"]))
+    return w
+
+
+@app.post("/auth/login")
+def login(body: LoginIn):
+    row = db.find_by_phone(_norm_phone(body.phone))
+    if not row or not db.check_pin(body.pin, row.get("pin_hash")):
+        raise HTTPException(401, "Wrong phone number or PIN.")
+    return db.get_worker(row["id"])
+
+
 class WorkerPatch(BaseModel):
     language: Literal["en", "te", "hi"]
 
@@ -111,6 +148,11 @@ def update_worker(worker_id: str, body: WorkerPatch):
     w = _worker_or_404(worker_id)
     db.update_worker_language(w["id"], body.language)
     return db.get_worker(w["id"])
+
+
+@app.get("/workers/{worker_id}")
+def get_worker(worker_id: str):
+    return _worker_or_404(worker_id)
 
 
 @app.delete("/workers/{worker_id}")

@@ -59,3 +59,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-down, .animate-pulse-ring, .animate-fade-up, .typing-dot { animation: none; }
 }
+
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-drawer { animation: drawer-in .28s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .animate-drawer { animation: none; } }

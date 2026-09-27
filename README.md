@@ -30,8 +30,12 @@ cp .env.example .env              # then put your GROQ_API_KEY in .env
 ./scripts/start-frontend.sh       # 3. app on http://localhost:5173   (new terminal)
 ```
 
-Open **http://localhost:5173**, choose a language, enter a name and start chatting. HakDaar starts
-**empty**: there is no fake or seeded data, and everything it knows is learned from real conversations.
+Open **http://localhost:5173**, choose a language, **create an account** (name, phone number and a 4-digit
+PIN) and start chatting. HakDaar starts **empty**: there is no fake or seeded data, and everything it knows is
+learned from real conversations.
+
+> Login is deliberately simple (phone + PIN, hashed with PBKDF2) so any phone user can manage it. It is
+> hackathon-grade identification, not production authentication: the API itself has no sessions or tokens.
 
 | Service | URL |
 |---|---|
@@ -71,21 +75,24 @@ cd frontend && npm install && npm run dev
 
 ## Walkthrough (2 minutes, all live, no seeded data)
 
-1. **Lakshmi** (हिंदी) chats: *"सुरेश कंस्ट्रक्शन्स ने रोज़ ₹650 का वादा किया"* → *"10 दिन काम किया"* →
+1. **Lakshmi** creates an account (हिंदी) and chats: *"सुरेश कंस्ट्रक्शन्स ने रोज़ ₹650 का वादा किया"* → *"10 दिन काम किया"* →
    *"3 हफ्ते बाद सिर्फ़ ₹5,000 मिले"*. Her ledger shows **₹1,500 owed**, and an anonymised *short + late
    payment* report goes into the shared `employer-reputation` memory.
-2. **Ravi** (తెలుగు) says *"సురేష్ గారు రోజుకు ₹700 ఇస్తామన్నారు"* ("Suresh promised ₹700 a day"). HakDaar
+2. Log out (account menu, top right). **Ravi** creates an account (తెలుగు) and says *"సురేష్ గారు రోజుకు ₹700 ఇస్తామన్నారు"* ("Suresh promised ₹700 a day"). HakDaar
    immediately warns him: **"1 other worker reported short or late payment from Suresh Constructions"**.
    It learned this from Lakshmi, without revealing her name.
 3. Ravi: *"6 రోజులు పని చేశాను"* ("I worked 6 days") → *"₹3,000 ఇచ్చారు"* ("They paid ₹3,000"). The red banner
    shows **₹1,200 owed**; the wallet tiles count up to Earned ₹4,200 / Paid ₹3,000 / Owed ₹1,200.
-4. Watch the **Memories** card: after each message it shows *"Learning…"* and then **"Learned N new facts"**,
-   with the new facts highlighted. Switch to *Used in last reply* to see exactly what Hindsight recalled.
-5. A number misheard? Tap **↶ Undo** on the "Noted" chip (or in *Show entries*). The ledger recomputes and a
+4. After each message the reply shows *"Learning…"* and then **"Learned N new facts"**. Tap it (or the
+   account menu → **Memories**) to see the new facts highlighted, and *Used in last reply* to see exactly
+   what Hindsight recalled. **Employer alerts** live in the same account panel.
+5. Bonuses count too: *"they promised a ₹2,000 bonus for the extra hours I worked"* is added to **Earned**.
+   Open **How is this calculated?** under the ledger for the plain-language formula.
+6. A number misheard? Tap **↶ Undo** on the "Noted" chip (or in *Show entries*). The ledger recomputes and a
    correction is retained into memory.
-6. Tap **Listen** on any reply to hear it read aloud, and **"What have workers reported?"** for a Hindsight
+7. Tap **Listen** on any reply to hear it read aloud, and **"What have workers reported?"** for a Hindsight
    `reflect()` summary of the employer.
-7. Refresh or restart everything: all of it is still remembered.
+8. Log out and back in, or restart everything: all of it is still remembered.
 
 ---
 
@@ -115,8 +122,9 @@ flowchart LR
    `{type, employer_name, amount, days, date, notes}`. The prompt forbids any arithmetic. Phrases like
    "8 days in total" or "he paid the rest" are flagged (`is_total`, `pays_full_balance`), and **Python**
    resolves them against the ledger.
-2. **Store and compute.** Events go to SQLite. `ledger.py` computes each employer's earned, paid and owed
-   amounts with `Decimal`. **The LLM never does maths**, so every rupee shown is exact and auditable.
+2. **Store and compute.** Events go to SQLite. `ledger.py` computes each employer's
+   **earned = daily rate × days + agreed fixed amounts (bonus / lump sum)**, **paid**, and
+   **owed = earned − paid**, with `Decimal`. **The LLM never does maths**, so every rupee shown is exact and auditable.
    Employer names are normalised ("suresh" → "Suresh Constructions") so one employer never splits into two rows.
 3. **Alerts and learning.** If money is owed, an underpayment alert is raised. After any payment, an
    **anonymised** report ("A worker reported a short payment from X…", or "…paid late") is written to SQLite
@@ -161,7 +169,10 @@ workers. SQLite holds the *numbers*. Money needs exact arithmetic, and memory ne
 | Method | Path | What it does |
 |---|---|---|
 | GET | `/health` | Checks that Hindsight and Groq are reachable |
+| POST | `/auth/register` | Create an account `{name, phone, pin (4 digits), language}` |
+| POST | `/auth/login` | `{phone, pin}` → worker |
 | GET / POST | `/workers` | List workers / create `{name, language: en\|te\|hi, phone?}` |
+| GET | `/workers/{id}` | One worker (used to restore a login session) |
 | PATCH | `/workers/{id}` | Change reply language `{language}` |
 | POST | `/chat` | `{worker_id, message}` → `{reply, extracted_events, alerts, recalled_memories, ledger, warnings}` |
 | DELETE | `/workers/{id}` | Remove a worker, their ledger, chats and private memory bank |
@@ -188,10 +199,12 @@ backend/
   app/db.py        SQLite schema and queries
   tests/           ledger + end-to-end API tests (Groq and Hindsight mocked)
 frontend/
-  src/App.jsx                    state, layout (3 columns on desktop, bottom tabs on mobile), live-learning polling
-  src/components/Onboarding.jsx  first-run: choose language, enter name
-  src/components/ChatPanel.jsx   chat, voice input, read-aloud, quick actions, undo chips, underpayment banner
-  src/components/MemoryPanel.jsx wage ledger (entries + undo), learned/recalled memories, employer alerts
+  src/App.jsx                      session, layout (chat + ledger on desktop, tabs on mobile), live-learning polling
+  src/components/Login.jsx         log in / create account: language, phone, 4-digit PIN
+  src/components/Header.jsx        logo, language menu, account button
+  src/components/ChatPanel.jsx     chat, voice input, read-aloud, quick actions, undo chips, underpayment banner
+  src/components/LedgerPanel.jsx   wage ledger (entries + undo), "How is this calculated?", memory + alert cards
+  src/components/AccountDrawer.jsx profile, Memories (learned / used in last reply), Employer alerts, log out
   src/i18n.js                   English / Telugu / Hindi UI strings
 scripts/            start-hindsight.sh, start-backend.sh, start-frontend.sh
 ```

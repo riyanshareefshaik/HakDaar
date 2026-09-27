@@ -1,6 +1,6 @@
 """Exact wage arithmetic. The LLM never does maths; everything here is plain Python.
 
-    earned = promised daily rate x days worked
+    earned = promised daily rate x days worked  +  agreed fixed amounts (bonus / lump sum for work done)
     owed   = earned - paid          (never negative; extra payment is shown as 'advance')
 """
 from decimal import ROUND_HALF_UP, Decimal
@@ -19,11 +19,15 @@ def summarize(events: list[dict]) -> list[dict]:
             "rate_per_day": None,
             "days_worked": Decimal(0),
             "amount_paid": Decimal(0),
+            "fixed_amount": Decimal(0),
             "payments": 0,
             "last_activity": None,
         })
         if e["type"] == "promise" and e.get("amount") is not None:
-            row["rate_per_day"] = Decimal(e["amount"])
+            if e.get("basis") == "fixed":
+                row["fixed_amount"] += Decimal(e["amount"])
+            else:
+                row["rate_per_day"] = Decimal(e["amount"])
         elif e["type"] == "work_day":
             row["days_worked"] += Decimal(str(e.get("days") or 0))
         elif e["type"] == "payment" and e.get("amount") is not None:
@@ -33,12 +37,13 @@ def summarize(events: list[dict]) -> list[dict]:
 
     result = []
     for row in by_employer.values():
-        rate, days, paid = row["rate_per_day"], row["days_worked"], row["amount_paid"]
-        if rate is None:
+        rate, days, paid, fixed = row["rate_per_day"], row["days_worked"], row["amount_paid"], row["fixed_amount"]
+        if rate is None and (days > 0 or fixed == 0):
+            # Days worked (or nothing agreed at all) but no daily rate known: can't compute honestly.
             earned = owed = advance = None
             status = "unknown_rate"
         else:
-            earned_d = rate * days
+            earned_d = (rate or Decimal(0)) * days + fixed
             earned = _rupees(earned_d)
             owed = _rupees(max(earned_d - paid, Decimal(0)))
             advance = _rupees(max(paid - earned_d, Decimal(0)))
@@ -51,6 +56,7 @@ def summarize(events: list[dict]) -> list[dict]:
             "amount_earned": earned,
             "amount_paid": _rupees(paid),
             "amount_owed": owed,
+            "fixed_amount": _rupees(fixed),
             "advance": advance,
             "payments": row["payments"],
             "status": status,

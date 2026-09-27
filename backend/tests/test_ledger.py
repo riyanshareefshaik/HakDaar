@@ -36,3 +36,10 @@ def test_format_inr():
     assert ledger.format_inr(125000) == "₹1,25,000"
     assert ledger.format_inr(10000000) == "₹1,00,00,000"
     assert ledger.format_inr(None) == "unknown"
+
+
+def test_fixed_amounts():
+    rows = ledger.summarize([{"type": "promise", "employer_name": "M", "amount": 2000, "days": None, "basis": "fixed"}])
+    assert rows[0]["amount_earned"] == 2000 and rows[0]["amount_owed"] == 2000 and rows[0]["rate_per_day"] is None
+    only_payment = ledger.summarize([ev("payment", amount=500)])
+    assert only_payment[0]["status"] == "unknown_rate"
