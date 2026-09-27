@@ -108,9 +108,13 @@ def list_workers() -> list[dict]:
 
 
 def get_worker(worker_id: str) -> dict | None:
+    """Look up by id; as a convenience for testing/demo, a unique name ('ravi') also works."""
     with connect() as conn:
         row = conn.execute("SELECT * FROM workers WHERE id = ?", (worker_id,)).fetchone()
-        return dict(row) if row else None
+        if row:
+            return dict(row)
+        rows = conn.execute("SELECT * FROM workers WHERE lower(name) = lower(?)", (worker_id.strip(),)).fetchall()
+        return dict(rows[0]) if len(rows) == 1 else None
 
 
 # ---------- messages ----------

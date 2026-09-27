@@ -58,14 +58,16 @@ class WorkerIn(BaseModel):
 
 
 class ChatIn(BaseModel):
-    worker_id: str
+    worker_id: str = Field(description="Worker id (e.g. from GET /workers) or a unique worker name like 'Ravi'",
+                           examples=["Ravi"])
     message: str = Field(min_length=1, max_length=2000)
 
 
 def _worker_or_404(worker_id: str) -> dict:
     w = db.get_worker(worker_id)
     if not w:
-        raise HTTPException(404, f"Worker '{worker_id}' not found")
+        raise HTTPException(404, f"Worker '{worker_id}' not found. Use an id from GET /workers "
+                             f"(or a worker name); run POST /demo/seed if the list is empty.")
     return w
 
 
@@ -101,8 +103,8 @@ async def create_worker(body: WorkerIn):
 
 @app.get("/workers/{worker_id}/messages")
 def get_messages(worker_id: str, limit: int = 100):
-    _worker_or_404(worker_id)
-    return db.list_messages(worker_id, limit=limit)
+    w = _worker_or_404(worker_id)
+    return db.list_messages(w["id"], limit=limit)
 
 
 @app.post("/chat")
@@ -113,9 +115,9 @@ async def post_chat(body: ChatIn):
 
 @app.get("/workers/{worker_id}/ledger")
 def get_ledger(worker_id: str):
-    _worker_or_404(worker_id)
-    rows = ledger.summarize(db.list_events(worker_id))
-    return {"worker_id": worker_id, "employers": rows, "totals": ledger.totals(rows)}
+    w = _worker_or_404(worker_id)
+    rows = ledger.summarize(db.list_events(w["id"]))
+    return {"worker_id": w["id"], "employers": rows, "totals": ledger.totals(rows)}
 
 
 @app.get("/workers/{worker_id}/memories")
@@ -123,16 +125,16 @@ async def get_memories(worker_id: str, q: str | None = None):
     w = _worker_or_404(worker_id)
     query = q or (f"What do I know about {w['name']}'s employers, promised daily wages, "
                   f"days worked, payments received and problems?")
-    mems = await memory.recall(memory.worker_bank(worker_id), query, limit=12)
-    return {"worker_id": worker_id, "bank_id": memory.worker_bank(worker_id), "query": query, "memories": mems}
+    mems = await memory.recall(memory.worker_bank(w["id"]), query, limit=12)
+    return {"worker_id": w["id"], "bank_id": memory.worker_bank(w["id"]), "query": query, "memories": mems}
 
 
 @app.get("/workers/{worker_id}/alerts")
 def get_alerts(worker_id: str):
     """Current alerts without sending a message (used when switching workers in the UI)."""
-    _worker_or_404(worker_id)
-    rows = ledger.summarize(db.list_events(worker_id))
-    return chat.build_alerts(worker_id, rows, focus=set())
+    w = _worker_or_404(worker_id)
+    rows = ledger.summarize(db.list_events(w["id"]))
+    return chat.build_alerts(w["id"], rows, focus=set())
 
 
 @app.get("/employers/{name}/reputation")

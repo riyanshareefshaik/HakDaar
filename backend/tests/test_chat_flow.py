@@ -152,3 +152,11 @@ def test_groq_down_returns_503_and_stores_nothing(client, fake, monkeypatch):
 def test_unknown_worker_404(client):
     assert client.get("/workers/nope/ledger").status_code == 404
     assert client.post("/workers", json={"name": "X", "language": "fr"}).status_code == 422
+
+
+def test_worker_lookup_by_name(client, fake):
+    client.post("/demo/seed")
+    assert client.get("/workers/ravi/ledger").json()["employers"][0]["amount_owed"] == 1200
+    fake.next_events = [ExtractedEvent(type="work_day", days=2)]
+    r = client.post("/chat", json={"worker_id": "Ravi", "message": "2 more days"}).json()
+    assert r["ledger"][0]["amount_owed"] == 2600
