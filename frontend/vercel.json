@@ -1,1 +1,10 @@
-{"redirects": [{"source": "/", "destination": "/landing/", "permanent": false}], "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]}
+{
+  "redirects": [
+    { "source": "/", "destination": "/landing/", "permanent": false },
+    { "source": "/landing", "destination": "/landing/", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/landing/", "destination": "/landing/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

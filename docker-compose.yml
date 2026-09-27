@@ -28,6 +28,8 @@ services:
       DATABASE_PATH: /data/hakdaar.db
       PUBLIC_MODE: "true"
       SESSION_SECRET: ${SESSION_SECRET:-}
+      # Only needed when the website is hosted elsewhere (e.g. https://hakdaar.vercel.app)
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
     volumes:
       - hakdaar-data:/data
     depends_on: [hindsight]

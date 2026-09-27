@@ -1,5 +1,6 @@
 // All calls go through Vite's /api proxy to the FastAPI backend (see vite.config.js).
-const BASE = import.meta.env.VITE_API_URL || '/api'
+// A static host like Vercel sets VITE_API_URL to wherever the backend runs, e.g. https://…/api
+const BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(message, status, service) {
