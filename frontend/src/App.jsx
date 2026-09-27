@@ -309,7 +309,7 @@ export default function App() {
   if (!worker) {
     return (
       <div className="flex h-dvh flex-col">
-        <Header s={s} health={health} />
+        <Header s={s} />
         {degraded}
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-md px-4 pt-4">
@@ -334,7 +334,7 @@ export default function App() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <Header s={s} health={health} language={language} onLanguage={changeLanguage}
+      <Header s={s} language={language} onLanguage={changeLanguage}
         worker={worker} alertCount={repAlerts} onAccount={() => openDrawer(repAlerts ? 'alerts' : 'memories')} />
       {degraded}
 
@@ -343,7 +343,7 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-black/5 px-4 py-2.5">
             <Avatar name={worker.name} size="size-10" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-bold leading-tight">{worker.name}</p>
+              <p className="truncate font-display text-xl font-bold leading-tight">{worker.name}</p>
               <button onClick={() => openDrawer('memories')} className="truncate text-xs text-muted hover:text-brand">
                 🧠 {s.allLearned}: {learned.total}
               </button>
@@ -404,6 +404,7 @@ export default function App() {
         worker={worker} alerts={alerts}
         memoryProps={{ recalled, learned, newIds, error: memoryError, loading: loadingWorker, learning, worker }}
         onLogout={logout} onDelete={deleteAccount} onResetAll={resetAll}
+        health={health} onRecheck={async () => { try { setHealth(await api.health()) } catch (e) { showToast(e.message, 'error') } }}
       />
 
       {toast && (
@@ -428,18 +429,18 @@ function Wallet({ s, totals, onClick }) {
       <button onClick={onClick} title={eHelp} className={`${tile} bg-white ring-1 ring-black/5`}>
         <HandCoins className="hidden size-5 shrink-0 text-amber-600 sm:block" />
         <span><span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.earned}</span>
-          <span className="font-bold tabular-nums">{inr(earned)}</span></span>
+          <span className="font-display text-lg font-bold tabular-nums">{inr(earned)}</span></span>
       </button>
       <button onClick={onClick} title={pHelp} className={`${tile} bg-white ring-1 ring-black/5`}>
         <CircleCheck className="hidden size-5 shrink-0 text-brand sm:block" />
         <span><span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.paid}</span>
-          <span className="font-bold tabular-nums">{inr(paid)}</span></span>
+          <span className="font-display text-lg font-bold tabular-nums">{inr(paid)}</span></span>
       </button>
       <button onClick={onClick} title={oHelp}
-        className={`${tile} ${isOwed ? 'bg-gradient-to-br from-red-500 to-danger text-white shadow-lift' : 'bg-brand-soft text-brand ring-1 ring-brand/20'}`}>
+        className={`stamp flex flex-1 items-center gap-2 bg-white px-2.5 py-1 text-left leading-tight transition hover:rotate-0 sm:flex-none ${isOwed ? 'text-danger' : 'text-brand'}`}>
         {isOwed ? <TriangleAlert className="hidden size-5 shrink-0 sm:block" /> : <CircleCheck className="hidden size-5 shrink-0 sm:block" />}
-        <span><span className={`block text-[11px] font-semibold uppercase ${isOwed ? 'text-white/85' : ''}`}>{s.wallet.owed}</span>
-          <span className="font-extrabold tabular-nums">{inr(owed)}</span></span>
+        <span><span className="block text-[11px] font-extrabold">{s.wallet.owed}</span>
+          <span className="text-xl font-extrabold tabular-nums">{inr(owed)}</span></span>
       </button>
     </div>
   )

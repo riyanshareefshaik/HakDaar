@@ -15,30 +15,24 @@ export function Avatar({ name, size = 'size-10' }) {
   )
 }
 
-export default function Header({ s, health, language, onLanguage, worker, alertCount = 0, onAccount }) {
+export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount }) {
   return (
-    <header className="header-gradient text-white shadow-md">
+    <header className="header-gradient text-white">
       <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-2.5 lg:px-6">
         <Logo size={42} className="shrink-0 drop-shadow-sm" />
-        <div className="min-w-0">
-          <h1 className="text-xl font-extrabold leading-tight tracking-tight">Hak<span className="text-amber-300">Daar</span></h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-display text-2xl font-extrabold leading-none tracking-tight">Hak<span className="text-amber-300">Daar</span></h1>
           <p className="hidden truncate text-sm leading-tight text-white/80 sm:block">{s.tagline}</p>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          {health && (
-            <div className="hidden items-center gap-2 text-xs xl:flex">
-              <StatusPill ok={health.hindsight?.ok} label="Hindsight memory" />
-              <StatusPill ok={health.groq?.ok} label="Groq AI" />
-            </div>
-          )}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {onLanguage && <LanguageMenu language={language} onChange={onLanguage} />}
           {worker && (
             <button onClick={onAccount} title={s.account}
               className="relative flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 transition hover:bg-white/20">
               <Avatar name={worker.name} size="size-8" />
               <span className="hidden max-w-32 truncate font-semibold sm:block">{worker.name}</span>
-              <ChevronDown className="size-4 opacity-80" />
+              <ChevronDown className="hidden size-4 opacity-80 min-[420px]:block" />
               {alertCount > 0 && (
                 <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-warn text-[11px] font-bold ring-2 ring-brand">
                   {alertCount}
@@ -48,16 +42,8 @@ export default function Header({ s, health, language, onLanguage, worker, alertC
           )}
         </div>
       </div>
+      <div className="header-trim" aria-hidden />
     </header>
-  )
-}
-
-function StatusPill({ ok, label }) {
-  return (
-    <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
-      <span className={`size-2 rounded-full ${ok ? 'bg-emerald-300' : 'bg-amber-300'}`} />
-      {label}
-    </span>
   )
 }
 
@@ -79,9 +65,9 @@ export function LanguageMenu({ language, onChange }) {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)} aria-haspopup="listbox" aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 font-semibold transition hover:bg-white/20">
+        className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-2 font-semibold transition hover:bg-white/20 sm:px-3">
         <Globe className="size-4.5" />
-        <span>{current.label}</span>
+        <span className="hidden min-[420px]:inline">{current.label}</span>
         <ChevronDown className={`size-4 opacity-80 transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (

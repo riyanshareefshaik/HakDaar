@@ -225,7 +225,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `How much did ${e} promise per day?`,
     yesPaid: 'Yes, paid', notYet: 'Not yet', tellRate: 'Tell the rate',
     replyYesPaid: (e) => `${e} paid me the full amount`,
-    celebrate: 'All paid! 🎉', reminders: 'Reminders',
+    celebrate: 'All paid! 🎉', reminders: 'Reminders', you: 'You', day1: 'Day', speakBtn: 'Speak', connections: 'Connections', memoryService: 'Hindsight memory', aiService: 'Groq AI', online: 'Online', offline: 'Offline', recheck: 'Check again',
     replyNotYet: (e) => `${e} has not paid me yet`,
     help: 'How it works',
     story: [
@@ -254,7 +254,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `${e} రోజుకు ఎంత ఇస్తామన్నారు?`,
     yesPaid: 'ఇచ్చారు', notYet: 'ఇంకా లేదు', tellRate: 'కూలి చెప్పండి',
     replyYesPaid: (e) => `${e} మొత్తం డబ్బులు ఇచ్చేశారు`,
-    celebrate: 'మొత్తం అందింది! 🎉', reminders: 'గుర్తుచేయడం',
+    celebrate: 'మొత్తం అందింది! 🎉', reminders: 'గుర్తుచేయడం', you: 'మీరు', day1: 'రోజు', speakBtn: 'మాట్లాడండి', connections: 'కనెక్షన్లు', memoryService: 'Hindsight జ్ఞాపకం', aiService: 'Groq AI', online: 'పనిచేస్తోంది', offline: 'ఆగిపోయింది', recheck: 'మళ్ళీ చూడండి',
     replyNotYet: (e) => `${e} ఇంకా డబ్బులు ఇవ్వలేదు`,
     help: 'ఎలా పనిచేస్తుంది',
     story: [
@@ -283,7 +283,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `${e} ने रोज़ कितना देने का वादा किया?`,
     yesPaid: 'हाँ, मिले', notYet: 'अभी नहीं', tellRate: 'दर बताएँ',
     replyYesPaid: (e) => `${e} ने पूरे पैसे दे दिए`,
-    celebrate: 'पूरा पैसा मिल गया! 🎉', reminders: 'याद दिलाना',
+    celebrate: 'पूरा पैसा मिल गया! 🎉', reminders: 'याद दिलाना', you: 'आप', day1: 'दिन', speakBtn: 'बोलें', connections: 'कनेक्शन', memoryService: 'Hindsight याददाश्त', aiService: 'Groq AI', online: 'चालू', offline: 'बंद', recheck: 'फिर जाँचें',
     replyNotYet: (e) => `${e} ने अभी तक पैसे नहीं दिए`,
     help: 'यह कैसे काम करता है',
     story: [

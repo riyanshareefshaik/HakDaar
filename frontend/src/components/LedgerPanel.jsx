@@ -43,7 +43,7 @@ function CardTitle({ icon: Icon, children, right }) {
   return (
     <div className="mb-3 flex items-center gap-2">
       <span className="grid size-8 place-items-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4.5" /></span>
-      <h3 className="flex-1 font-bold">{children}</h3>
+      <h3 className="flex-1 font-display text-lg font-bold">{children}</h3>
       {right}
     </div>
   )
@@ -79,19 +79,19 @@ function EmployerRow({ r, s, onUndo }) {
   const pct = r.amount_earned ? Math.min(100, Math.round((r.amount_paid / r.amount_earned) * 100)) : 0
 
   return (
-    <div className={`rounded-xl border p-3 transition ${isOwed ? 'border-danger/25 bg-danger-soft/50' : 'border-black/5 bg-sand/60'}`}>
+    <div className={`chat-bg rounded-2xl border-l-4 p-3 pl-4 shadow-soft transition ${isOwed ? 'border-danger' : 'border-brand'}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 font-semibold"><Building2 className="size-4 shrink-0 text-muted" /> <span className="truncate">{r.employer_name}</span></p>
+        <p className="flex min-w-0 items-center gap-1.5 font-display text-lg font-bold"><Building2 className="size-4 shrink-0 text-muted" /> <span className="truncate">{r.employer_name}</span></p>
         {!unknown && (
           isOwed ? (
-            <span className="text-right">
-              <span className="block text-[11px] font-bold uppercase tracking-wide text-danger">{s.owed}</span>
-              <span className="text-3xl font-extrabold leading-none tabular-nums text-danger">{inr(owed)}</span>
+            <span key={r.amount_owed} className="stamp animate-stamp mr-1 mt-1 bg-white/60 px-2.5 py-1 text-right text-danger">
+              <span className="block text-[11px] font-extrabold">{s.owed}</span>
+              <span className="block text-3xl font-extrabold leading-none tabular-nums">{inr(owed)}</span>
             </span>
           ) : (
-            <span className="text-right">
-              <span className="block text-[11px] font-bold uppercase tracking-wide text-brand">{r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</span>
-              <span className="text-3xl font-extrabold leading-none text-brand">₹0</span>
+            <span className="stamp animate-stamp mr-1 mt-1 bg-white/60 px-2.5 py-1 text-right text-brand">
+              <span className="block text-[11px] font-extrabold">{r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</span>
+              <span className="block text-3xl font-extrabold leading-none">₹0</span>
             </span>
           )
         )}
@@ -148,7 +148,7 @@ function EntryRow({ e, s, onUndo }) {
     promise: e.basis === 'fixed'
       ? { icon: Gift, label: s.entryFixed, value: inr(e.amount) }
       : { icon: BriefcaseBusiness, label: s.entryPromise, value: `${inr(e.amount)}${s.perDay}` },
-    work_day: { icon: CalendarCheck, label: s.entryWork, value: `${e.days} ${s.days}` },
+    work_day: { icon: CalendarCheck, label: s.entryWork, value: `${e.days} ${e.days === 1 ? s.day1 : s.days}` },
     payment: { icon: Banknote, label: s.entryPay, value: inr(e.amount) },
   }[e.type]
   const Icon = conf.icon

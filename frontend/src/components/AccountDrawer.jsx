@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Brain, LogOut, Phone, Trash2, Users, X } from 'lucide-react'
+import { Brain, Cpu, Database, Loader2, LogOut, Phone, RefreshCw, Trash2, Users, X } from 'lucide-react'
 import { Avatar } from './Header'
 import { AlertsCard, MemoriesCard } from './LedgerPanel'
 
 /** Slide-over "My account": profile, what HakDaar has learned, employer warnings, log out. */
-export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll }) {
+export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck }) {
   const [tab, setTab] = useState(section || 'memories')
   useEffect(() => { if (open && section) setTab(section) }, [open, section])
   useEffect(() => {
@@ -45,6 +45,8 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
           {tab === 'memories' ? <MemoriesCard s={s} {...memoryProps} /> : <AlertsCard s={s} alerts={alerts} loading={false} />}
         </div>
 
+        <Connections s={s} health={health} onRecheck={onRecheck} />
+
         <div className="space-y-1 border-t border-black/5 bg-white p-3">
           <button onClick={onLogout}
             className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 font-semibold text-ink transition hover:bg-sand">
@@ -61,5 +63,42 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
         </div>
       </aside>
     </div>
+  )
+}
+
+/** Settings: are the memory server and the AI reachable? (moved here from the header) */
+function Connections({ s, health, onRecheck }) {
+  const [busy, setBusy] = useState(false)
+  if (!health) return null
+  const rows = [
+    { icon: Database, name: s.memoryService, ok: health.hindsight?.ok,
+      detail: health.hindsight?.ok ? `v${health.hindsight.version ?? '?'} · ${health.hindsight.url}` : health.hindsight?.error },
+    { icon: Cpu, name: s.aiService, ok: health.groq?.ok,
+      detail: health.groq?.ok ? health.groq.model : health.groq?.error },
+  ]
+  return (
+    <section className="border-t border-black/5 bg-cream px-4 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{s.connections}</h3>
+        <button onClick={async () => { setBusy(true); await onRecheck(); setBusy(false) }} disabled={busy}
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand hover:bg-brand-soft">
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />} {s.recheck}
+        </button>
+      </div>
+      <ul className="space-y-1.5">
+        {rows.map(({ icon: Icon, name, ok, detail }) => (
+          <li key={name} className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-2 ring-1 ring-black/5">
+            <Icon className="size-4 shrink-0 text-muted" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold leading-tight">{name}</span>
+              <span className="block truncate text-xs text-muted" title={detail}>{detail}</span>
+            </span>
+            <span className={`flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-bold ${ok ? 'bg-brand-soft text-brand' : 'bg-warn-soft text-warn'}`}>
+              <span className={`size-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-amber-500'}`} /> {ok ? s.online : s.offline}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

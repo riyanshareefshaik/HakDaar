@@ -13,6 +13,11 @@
   --color-danger: #DC2626;
   --color-danger-soft: #FDECEC;
   --font-sans: "Noto Sans", "Noto Sans Telugu", "Noto Sans Devanagari", system-ui, sans-serif;
+  /* Warm Indian display face for headings, names and money (covers Latin, Devanagari and Telugu) */
+  --font-display: "Baloo 2", "Baloo Tammudu 2", "Noto Sans", "Noto Sans Telugu", "Noto Sans Devanagari", system-ui, sans-serif;
+  --color-ink-blue: #1D3557;
+  --color-saffron: #E07A1F;
+  --color-paper: #FFFDF7;
   --shadow-soft: 0 1px 2px rgb(30 42 36 / 0.04), 0 4px 16px rgb(30 42 36 / 0.06);
   --shadow-lift: 0 2px 4px rgb(30 42 36 / 0.04), 0 12px 32px -8px rgb(31 111 74 / 0.22);
 }
@@ -83,14 +88,55 @@ body {
 .animate-collapse { animation: collapse .28s ease-in both; }
 @media (prefers-reduced-motion: reduce) { .animate-pop, .animate-collapse { animation: none; } }
 
-/* Faint rupee + shield doodles behind the chat, like a messaging app wallpaper */
+/* Khata (account book) paper: warm page, faint ruled lines and a red margin line */
 .chat-bg {
-  background-color: #FAF8F3;
+  background-color: #FFFBF1;
   background-image:
-    radial-gradient(circle at 10% 0%, rgb(31 111 74 / 0.06), transparent 40%),
-    radial-gradient(circle at 100% 100%, rgb(217 119 6 / 0.06), transparent 45%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%231F6F4A' stroke-opacity='.06' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 18h14M20 23h14M22 18h3c3 0 4.5 2 4.5 4.5S28 27 25 27h-3l8 8'/%3E%3Cpath d='M86 70l12-4.5 12 4.5v9c0 7.5-5 13.5-12 16-7-2.5-12-8.5-12-16z'/%3E%3Ccircle cx='82' cy='24' r='5'/%3E%3Cpath d='M18 88h16v10H18zM22 88v-3h8v3'/%3E%3C/g%3E%3C/svg%3E");
+    linear-gradient(90deg, transparent 0, transparent 38px, rgb(220 38 38 / 0.22) 38px, rgb(220 38 38 / 0.22) 40px, transparent 40px),
+    repeating-linear-gradient(180deg, transparent 0, transparent 31px, rgb(29 53 87 / 0.07) 31px, rgb(29 53 87 / 0.07) 32px);
+  background-attachment: local;
 }
+@media (min-width: 640px) {
+  .chat-bg { background-image:
+    linear-gradient(90deg, transparent 0, transparent 54px, rgb(220 38 38 / 0.22) 54px, rgb(220 38 38 / 0.22) 56px, transparent 56px),
+    repeating-linear-gradient(180deg, transparent 0, transparent 31px, rgb(29 53 87 / 0.07) 31px, rgb(29 53 87 / 0.07) 32px); }
+}
+
+/* Decorative border under the header: a small repeating diamond motif */
+.header-trim {
+  height: 6px;
+  background:
+    linear-gradient(135deg, #E07A1F 25%, transparent 25%) -6px 0 / 12px 6px,
+    linear-gradient(225deg, #E07A1F 25%, transparent 25%) -6px 0 / 12px 6px,
+    #F4C06A;
+}
+
+/* Receipt stub: perforated edges on left and right */
+.stub {
+  --hole: 7px;
+  background:
+    radial-gradient(circle at 0 50%, transparent var(--hole), #fff calc(var(--hole) + .5px)) left / 51% 100% no-repeat,
+    radial-gradient(circle at 100% 50%, transparent var(--hole), #fff calc(var(--hole) + .5px)) right / 51% 100% no-repeat;
+  filter: drop-shadow(0 1px 1px rgb(30 42 36 / .08)) drop-shadow(0 4px 10px rgb(30 42 36 / .06));
+}
+
+/* Rubber stamp */
+.stamp {
+  font-family: var(--font-display);
+  border: 2.5px solid currentColor;
+  outline: 1.5px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  transform: rotate(-4deg);
+  mix-blend-mode: multiply;
+}
+@keyframes stamp-in { 0% { transform: rotate(-4deg) scale(1.8); opacity: 0; } 70% { transform: rotate(-4deg) scale(.95); opacity: 1; } 100% { transform: rotate(-4deg) scale(1); } }
+.animate-stamp { animation: stamp-in .45s cubic-bezier(.3,1.4,.5,1) both; }
+@media (prefers-reduced-motion: reduce) { .animate-stamp { animation: none; } }
+
+.font-display { font-family: var(--font-display); }
 
 .header-gradient {
   background: linear-gradient(100deg, #17563A 0%, #1F6F4A 45%, #23805A 100%);

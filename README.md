@@ -73,6 +73,13 @@ cd frontend && npm install && npm run dev
 
 ---
 
+## Design: a digital *khata*
+HakDaar looks like the account book (*khata*) workers and shopkeepers already know, not a chat app:
+ruled paper with a red margin, HakDaar's entries on white paper and the worker's in blue ink, every recorded fact
+as a torn **receipt stub** with a **NOTED** rubber stamp, and money owed as a red **OWED** stamp. Headings and
+amounts use *Baloo 2 / Baloo Tammudu 2*, a warm display face that covers English, Hindi and Telugu.
+Service status (Hindsight, Groq) lives in **My account → Connections**.
+
 ## Built for workers who can't read easily
 - **Ravi's story:** a 5-step picture story (with read-aloud) opens on first visit and from the ▶ button.
 - **HakDaar speaks first:** on login a *welcome-back* message is written from Hindsight memory plus exact

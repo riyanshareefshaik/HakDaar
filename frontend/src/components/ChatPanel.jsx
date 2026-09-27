@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, CircleAlert, CircleHelp, Loader2,
-  Mic, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, VolumeX, X,
+  Mic, PenLine, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, VolumeX, X,
 } from 'lucide-react'
 import { inr } from '../api'
 import { LANGS } from '../i18n'
@@ -136,7 +136,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-black/5 bg-cream/95 px-4 pb-3 pt-2 backdrop-blur">
+      <div className="relative z-10 -mt-3 rounded-t-3xl border-t border-black/5 bg-white px-4 pb-3 pt-3 shadow-[0_-8px_24px_-12px_rgb(30_42_36/0.18)]">
         <div className="mx-auto max-w-3xl">
           <div className="mb-2 grid grid-cols-4 gap-2" lang={language}>
             {QUICK.map((q) => {
@@ -176,7 +176,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
             </>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
-              <div className="flex flex-1 items-end rounded-2xl border border-black/10 bg-white shadow-soft transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
+              <div className="flex flex-1 items-end rounded-2xl border-2 border-black/10 bg-cream transition focus-within:border-brand focus-within:bg-white">
                 <textarea
                   ref={inputRef} rows={1} value={text} lang={language} disabled={voice.busy}
                   onChange={(e) => setText(e.target.value)}
@@ -186,16 +186,17 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
                   style={{ fieldSizing: 'content' }}
                 />
               </div>
-              {/* Like WhatsApp: a big mic when the box is empty, the send arrow once there is text. */}
+              {/* Speak is the main action (a labelled button, not an icon); it becomes Send once there is text. */}
               {canRecord && !text.trim() ? (
                 <button type="button" onClick={startRecording} disabled={voice.busy || sending} aria-label={s.mic} title={s.mic}
-                  className="grid size-14 shrink-0 place-items-center rounded-full bg-brand text-white shadow-soft ring-4 ring-brand/15 transition hover:bg-brand-dark active:scale-95 disabled:opacity-60">
-                  {voice.busy ? <Loader2 className="size-7 animate-spin" /> : <Mic className="size-7" />}
+                  className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-b from-amber-500 to-saffron px-4 font-display text-lg font-bold text-white shadow-lift transition hover:brightness-105 active:scale-95 disabled:opacity-60">
+                  {voice.busy ? <Loader2 className="size-6 animate-spin" /> : <Mic className="size-6" />}
+                  <span className="hidden min-[400px]:inline">{s.speakBtn}</span>
                 </button>
               ) : (
                 <button type="submit" disabled={!text.trim() || sending || voice.busy} aria-label={s.send}
-                  className="grid size-14 shrink-0 place-items-center rounded-full bg-brand text-white shadow-soft ring-4 ring-brand/15 transition hover:bg-brand-dark active:scale-95 disabled:opacity-40">
-                  <SendHorizontal className="size-6" />
+                  className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-b from-brand to-brand-dark px-4 font-display text-lg font-bold text-white shadow-lift transition active:scale-95 disabled:opacity-40">
+                  <SendHorizontal className="size-6" /> <span className="hidden min-[400px]:inline">{s.send}</span>
                 </button>
               )}
             </form>
@@ -246,18 +247,19 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
 
   return (
     <li className={`flex animate-fade-up flex-col ${mine ? 'items-end' : 'items-start'}`}>
-      <div className={`flex max-w-[88%] items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
-        {!mine && <Logo size={30} tone="dark" className="mb-0.5 shrink-0" />}
-        <div className={`whitespace-pre-wrap px-4 py-3 text-[1.05rem] ${mine
-          ? 'rounded-2xl rounded-br-md bg-gradient-to-br from-brand to-brand-dark text-white shadow-lift'
-          : 'rounded-2xl rounded-bl-md border border-black/5 bg-white text-ink shadow-soft'}`}>
-          {m.content}
-        </div>
-      </div>
+      {/* Entries in a khata, not chat bubbles: HakDaar writes on white paper, the worker in blue ink. */}
+      <article className={`max-w-[92%] px-4 pb-3 pt-2 sm:max-w-[80%] ${mine
+        ? 'rounded-[20px_6px_20px_20px] border-r-4 border-ink-blue bg-[#EEF3FA] text-ink-blue shadow-soft'
+        : 'rounded-[6px_20px_20px_20px] border-l-4 border-brand bg-paper text-ink shadow-soft'}`}>
+        <header className={`mb-0.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${mine ? 'justify-end text-ink-blue/70' : 'text-brand'}`}>
+          {mine ? <><PenLine className="size-3.5" /> {s.you}</> : <><Logo size={18} tone="dark" /> <span className="font-display text-sm normal-case tracking-normal">HakDaar</span></>}
+        </header>
+        <p className="whitespace-pre-wrap text-[1.07rem] leading-relaxed">{m.content}</p>
+      </article>
 
       {mine && events.length > 0 && (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
-          {events.map((e) => <EventChip key={e.id} e={e} s={s} onUndo={onUndo} />)}
+        <div className="mt-2 flex max-w-[92%] flex-col items-end gap-1.5">
+          {events.map((e) => <ReceiptStub key={e.id} e={e} s={s} onUndo={onUndo} />)}
         </div>
       )}
 
@@ -288,26 +290,41 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
   )
 }
 
-function EventChip({ e, s, onUndo }) {
-  const [busy, setBusy] = useState(false)
-  let label
-  if (e.type === 'promise' && e.basis === 'fixed') label = `${e.employer_name}: ${s.entryFixed} ${inr(e.amount)}`
-  else if (e.type === 'promise') label = `${e.employer_name}: ${inr(e.amount)}${s.perDay}`
-  else if (e.type === 'work_day') label = `+${e.days} ${s.days} · ${e.employer_name}`
-  else label = `${s.paid} ${inr(e.amount)} · ${e.employer_name}`
+const STUB = {
+  promise: { icon: BriefcaseBusiness, tint: 'bg-sky-100 text-sky-700' },
+  work_day: { icon: CalendarCheck, tint: 'bg-amber-100 text-amber-700' },
+  payment: { icon: Banknote, tint: 'bg-emerald-100 text-emerald-700' },
+}
 
-  if (e.undone) {
-    return <span className="rounded-full bg-sand px-2.5 py-1 text-xs text-muted line-through">{label}</span>
-  }
+/** Every recorded fact becomes a torn-off receipt with a "NOTED" rubber stamp (and an undo). */
+function ReceiptStub({ e, s, onUndo }) {
+  const [busy, setBusy] = useState(false)
+  const conf = STUB[e.type]
+  const Icon = conf.icon
+  let label, value
+  if (e.type === 'promise' && e.basis === 'fixed') { label = s.entryFixed; value = inr(e.amount) }
+  else if (e.type === 'promise') { label = s.entryPromise; value = `${inr(e.amount)}${s.perDay}` }
+  else if (e.type === 'work_day') { label = s.entryWork; value = `${e.days} ${e.days === 1 ? s.day1 : s.days}` }
+  else { label = s.entryPay; value = inr(e.amount) }
+
   return (
-    <span className="flex items-center gap-1 rounded-full border border-brand/15 bg-brand-soft py-0.5 pl-2.5 pr-1 text-xs font-medium text-brand">
-      ✓ {s.noted}: {label}
-      <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy}
-        title={s.undo} aria-label={`${s.undo}: ${label}`}
-        className="grid size-6 place-items-center rounded-full text-brand/70 transition hover:bg-white hover:text-danger">
-        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
-      </button>
-    </span>
+    <div className={`stub flex items-center gap-3 py-2 pl-5 pr-3 ${e.undone ? 'opacity-50 grayscale' : ''}`}>
+      <span className={`grid size-9 shrink-0 place-items-center rounded-full ${conf.tint}`}><Icon className="size-5" /></span>
+      <span className="min-w-0 border-l border-dashed border-black/15 pl-3">
+        <span className="block text-[11px] font-bold uppercase tracking-wide text-muted">{label} · {e.employer_name}</span>
+        <span className={`font-display text-xl font-bold leading-tight tabular-nums text-ink ${e.undone ? 'line-through' : ''}`}>{value}</span>
+      </span>
+      <span className={`stamp animate-stamp ml-1 shrink-0 px-1.5 py-0.5 text-[11px] font-extrabold ${e.undone ? 'text-muted' : 'text-brand'}`}>
+        {e.undone ? s.undone : `✓ ${s.noted}`}
+      </span>
+      {!e.undone && (
+        <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy}
+          title={s.undo} aria-label={`${s.undo}: ${label} ${value}`}
+          className="grid size-8 shrink-0 place-items-center rounded-full text-muted transition hover:bg-danger-soft hover:text-danger">
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <Undo2 className="size-4" />}
+        </button>
+      )}
+    </div>
   )
 }
 
