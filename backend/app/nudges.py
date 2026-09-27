@@ -47,12 +47,14 @@ def compute_nudges(worker_id: str) -> list[dict]:
 
 GREETING_PROMPT = """You are HakDaar, a warm friend who helps a daily-wage worker keep track of wages.
 {name} has just opened the app again. Write a short welcome-back message in {language}:
-- at most 40 words, very simple words, like a friend speaking; no markdown, no lists
+- at most 35 words, very simple words, like a friend speaking; no markdown, no lists
 - greet them by name
-- mention the MOST important item from PENDING (use the exact rupee amounts and days written there)
-- mention one thing you remember from MEMORIES, if useful
-- end with one simple yes/no question (e.g. did they get paid?)
-Never invent numbers.
+- if PENDING has items: mention the most important one, using ONLY the exact amounts written in PENDING,
+  and end with ONE simple yes/no question about it (e.g. "Did Suresh pay you?")
+- if PENDING says nothing pending: just welcome them warmly and ask how work is going; use no numbers
+- you may mention an employer name or place from MEMORIES, but NEVER any number, amount, date or day count
+  from MEMORIES (they may be out of date)
+- one question only
 
 PENDING (exact, computed by the app):
 {pending}
@@ -75,6 +77,23 @@ def _pending_text(nudges: list[dict]) -> str:
         elif n["type"] == "missing_rate":
             lines.append(f"- we don't know the daily rate {n['employer_name']} promised yet")
     return "\n".join(lines) or "(nothing pending)"
+
+
+def _numbers(text: str) -> set[int]:
+    """All numbers in a text (commas removed): '₹1,200 for 6 days' -> {1200, 6}."""
+    import re
+    return {int(n.replace(",", "")) for n in re.findall(r"\d[\d,]*", text) if n.replace(",", "").isdigit()}
+
+
+def greeting_is_grounded(greeting: str, nudges: list[dict]) -> bool:
+    """The LLM may only repeat numbers we computed. Anything else (an old amount from memory,
+    a guessed day count) means the greeting could mislead the worker, so we drop it."""
+    allowed = set()
+    for n in nudges:
+        for key in ("amount_owed", "days_since"):
+            if n.get(key) is not None:
+                allowed.add(int(n[key]))
+    return _numbers(greeting) <= allowed
 
 
 async def welcome(worker: dict) -> dict:
@@ -107,4 +126,7 @@ async def welcome(worker: dict) -> dict:
         )
     except llm.LLMUnavailable as e:
         log.warning("welcome greeting failed: %s", e)
+    if greeting and not greeting_is_grounded(greeting, nudges):
+        log.warning("Dropping ungrounded greeting: %r", greeting)
+        greeting = None  # the UI falls back to a plain "Welcome back" + the exact nudge cards
     return {"greeting": greeting or None, "nudges": nudges, "has_history": True, "memories": mems}

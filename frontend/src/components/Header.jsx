@@ -17,7 +17,7 @@ export function Avatar({ name, size = 'size-10' }) {
 
 export default function Header({ s, health, language, onLanguage, worker, alertCount = 0, onAccount }) {
   return (
-    <header className="bg-brand text-white">
+    <header className="header-gradient text-white shadow-md">
       <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-2.5 lg:px-6">
         <Logo size={42} className="shrink-0 drop-shadow-sm" />
         <div className="min-w-0">

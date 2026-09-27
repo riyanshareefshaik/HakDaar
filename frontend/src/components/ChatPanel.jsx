@@ -9,6 +9,7 @@ import { api } from '../api'
 import { canRecord, canSpeak, speak, stopSpeaking, useRecorder } from '../hooks'
 import WelcomeCard from './WelcomeCard'
 import QuickEntrySheet from './QuickEntrySheet'
+import Logo from './Logo'
 
 
 // Big, colour-coded picture buttons: recognisable without reading.
@@ -20,7 +21,7 @@ const QUICK = [
 ]
 
 export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory,
-  welcome, welcomeLoading, welcomeAt = 0, employers = [] }) {
+  welcome, welcomeLoading, welcomeAt = 0, welcomeOpen = true, onCloseWelcome, employers = [] }) {
   const [text, setText] = useState('')
   const [sheet, setSheet] = useState({ mode: null, employer: null })
   const [voice, setVoice] = useState({ busy: false, error: null })
@@ -40,6 +41,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   const send = (msg = text) => {
     const m = msg.trim()
     if (!m || sending) return
+    onCloseWelcome?.()
     onSend(m)
     setText('')
   }
@@ -80,8 +82,8 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
 
   const lastAssistant = messages.findLastIndex((m) => m.role === 'assistant')
   // A plain element (not a nested component) so it isn't remounted, and doesn't re-speak, on every render.
-  const welcomeEl = (
-    <WelcomeCard key="welcome" s={s} worker={worker} language={language} speechTag={speechTag} welcome={welcome} loading={welcomeLoading}
+  const welcomeEl = welcomeOpen && (
+    <WelcomeCard key="welcome" onClose={onCloseWelcome} s={s} worker={worker} language={language} speechTag={speechTag} welcome={welcome} loading={welcomeLoading}
       onReply={(t) => send(t)} onTellRate={(e) => setSheet({ mode: 'promise', employer: e })} />
   )
 
@@ -102,7 +104,7 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto scroll-thin px-4 py-4" lang={language}>
+      <div className="chat-bg flex-1 overflow-y-auto scroll-thin px-4 py-4" lang={language}>
         {loading ? (
           <div className="mx-auto max-w-3xl space-y-3">
             {[60, 40, 70].map((w, i) => (
@@ -244,10 +246,13 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
 
   return (
     <li className={`flex animate-fade-up flex-col ${mine ? 'items-end' : 'items-start'}`}>
-      <div className={`max-w-[85%] whitespace-pre-wrap px-4 py-3 text-[1.05rem] shadow-soft ${mine
-        ? 'rounded-2xl rounded-br-md bg-brand text-white'
-        : 'rounded-2xl rounded-bl-md border border-black/5 bg-white text-ink'}`}>
-        {m.content}
+      <div className={`flex max-w-[88%] items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+        {!mine && <Logo size={30} tone="dark" className="mb-0.5 shrink-0" />}
+        <div className={`whitespace-pre-wrap px-4 py-3 text-[1.05rem] ${mine
+          ? 'rounded-2xl rounded-br-md bg-gradient-to-br from-brand to-brand-dark text-white shadow-lift'
+          : 'rounded-2xl rounded-bl-md border border-black/5 bg-white text-ink shadow-soft'}`}>
+          {m.content}
+        </div>
       </div>
 
       {mine && events.length > 0 && (

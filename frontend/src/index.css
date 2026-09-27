@@ -14,6 +14,7 @@
   --color-danger-soft: #FDECEC;
   --font-sans: "Noto Sans", "Noto Sans Telugu", "Noto Sans Devanagari", system-ui, sans-serif;
   --shadow-soft: 0 1px 2px rgb(30 42 36 / 0.04), 0 4px 16px rgb(30 42 36 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(30 42 36 / 0.04), 0 12px 32px -8px rgb(31 111 74 / 0.22);
 }
 
 html, body, #root { height: 100%; }
@@ -74,3 +75,32 @@ body {
 @keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .animate-slide-up { animation: slide-up .28s cubic-bezier(.2,.8,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .animate-slide-up { animation: none; } }
+
+/* Welcome card: springs in, collapses away */
+@keyframes pop { 0% { transform: translateY(8px) scale(.97); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes collapse { to { transform: translateY(-6px) scale(.97); opacity: 0; } }
+.animate-pop { animation: pop .35s cubic-bezier(.2,.9,.3,1.2) both; }
+.animate-collapse { animation: collapse .28s ease-in both; }
+@media (prefers-reduced-motion: reduce) { .animate-pop, .animate-collapse { animation: none; } }
+
+/* Faint rupee + shield doodles behind the chat, like a messaging app wallpaper */
+.chat-bg {
+  background-color: #FAF8F3;
+  background-image:
+    radial-gradient(circle at 10% 0%, rgb(31 111 74 / 0.06), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgb(217 119 6 / 0.06), transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%231F6F4A' stroke-opacity='.06' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 18h14M20 23h14M22 18h3c3 0 4.5 2 4.5 4.5S28 27 25 27h-3l8 8'/%3E%3Cpath d='M86 70l12-4.5 12 4.5v9c0 7.5-5 13.5-12 16-7-2.5-12-8.5-12-16z'/%3E%3Ccircle cx='82' cy='24' r='5'/%3E%3Cpath d='M18 88h16v10H18zM22 88v-3h8v3'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.header-gradient {
+  background: linear-gradient(100deg, #17563A 0%, #1F6F4A 45%, #23805A 100%);
+}
+
+/* Celebration when an employer has paid everything */
+@keyframes confetti-fall {
+  0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); opacity: .9; }
+}
+.confetti { position: fixed; top: 0; width: 9px; height: 14px; border-radius: 2px; z-index: 60; pointer-events: none;
+  animation: confetti-fall var(--dur) cubic-bezier(.2,.6,.4,1) forwards; }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

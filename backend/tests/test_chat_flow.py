@@ -280,3 +280,19 @@ def test_welcome_and_nudges(client, fake, monkeypatch):
     n = r["nudges"][0]
     assert (n["type"], n["employer_name"], n["amount_owed"], n["promised_later"]) == ("owed", "Kiran Builders", 1200, True)
     assert r["greeting"] == "Welcome back Ravi!" and "owes ₹1,200" in prompts[0] and "Telugu" in prompts[0]
+
+
+def test_greeting_with_invented_numbers_is_dropped(client, fake, monkeypatch):
+    from app import nudges as nudges_mod
+    assert nudges_mod.greeting_is_grounded("Suresh still owes you ₹1,200, 5 days now", [{"amount_owed": 1200, "days_since": 5}])
+    assert not nudges_mod.greeting_is_grounded("You got the ₹5,555 payment yesterday", [{"amount_owed": 1200, "days_since": 5}])
+    assert not nudges_mod.greeting_is_grounded("payment for 5 days of work", [])
+    assert nudges_mod.greeting_is_grounded("Welcome back Parker! How is work going?", [])
+
+    w = client.post("/workers", json={"name": "Parker", "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="other", notes="hello"))
+
+    async def lying(prompt, max_tokens=300, temperature=0.5):
+        return "Welcome back, Parker! You got the ₹5,555 payment yesterday, right?"
+    monkeypatch.setattr(llm, "complete", lying)
+    assert client.get(f"/workers/{w}/welcome").json()["greeting"] is None

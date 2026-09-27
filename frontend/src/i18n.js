@@ -225,6 +225,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `How much did ${e} promise per day?`,
     yesPaid: 'Yes, paid', notYet: 'Not yet', tellRate: 'Tell the rate',
     replyYesPaid: (e) => `${e} paid me the full amount`,
+    celebrate: 'All paid! 🎉', reminders: 'Reminders',
     replyNotYet: (e) => `${e} has not paid me yet`,
     help: 'How it works',
     story: [
@@ -253,6 +254,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `${e} రోజుకు ఎంత ఇస్తామన్నారు?`,
     yesPaid: 'ఇచ్చారు', notYet: 'ఇంకా లేదు', tellRate: 'కూలి చెప్పండి',
     replyYesPaid: (e) => `${e} మొత్తం డబ్బులు ఇచ్చేశారు`,
+    celebrate: 'మొత్తం అందింది! 🎉', reminders: 'గుర్తుచేయడం',
     replyNotYet: (e) => `${e} ఇంకా డబ్బులు ఇవ్వలేదు`,
     help: 'ఎలా పనిచేస్తుంది',
     story: [
@@ -281,6 +283,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `${e} ने रोज़ कितना देने का वादा किया?`,
     yesPaid: 'हाँ, मिले', notYet: 'अभी नहीं', tellRate: 'दर बताएँ',
     replyYesPaid: (e) => `${e} ने पूरे पैसे दे दिए`,
+    celebrate: 'पूरा पैसा मिल गया! 🎉', reminders: 'याद दिलाना',
     replyNotYet: (e) => `${e} ने अभी तक पैसे नहीं दिए`,
     help: 'यह कैसे काम करता है',
     story: [

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { CheckCircle2, Clock, HelpCircle, Loader2, Volume2, VolumeX, XCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, Clock, HelpCircle, Loader2, Volume2, VolumeX, X, XCircle } from 'lucide-react'
 import { inr } from '../api'
 import { speak, stopSpeaking } from '../hooks'
 import Logo from './Logo'
@@ -8,17 +8,46 @@ import Logo from './Logo'
  * HakDaar speaks first: a welcome-back line written from Hindsight memory + exact follow-up nudges
  * ("Suresh still owes you ₹1,200 · 5 days") with big one-tap answers.
  */
-export default function WelcomeCard({ s, worker, language, speechTag, welcome, loading, onReply, onTellRate }) {
+const AUTO_CLOSE_MS = 20000
+
+export default function WelcomeCard({ s, worker, language, speechTag, welcome, loading, onReply, onTellRate, onClose }) {
   const [speaking, setSpeaking] = useState(false)
+  const [held, setHeld] = useState(false) // pointer over / touching the card pauses the countdown
+  const [left, setLeft] = useState(AUTO_CLOSE_MS)
+  const [closing, setClosing] = useState(false)
+  const last = useRef(null)
+
+  const close = () => { setClosing(true); setTimeout(onClose, 280) }
+
+  // Closes by itself: a visible countdown that pauses while reading aloud or while the worker is touching it.
+  useEffect(() => {
+    if (loading || closing) return
+    const id = setInterval(() => {
+      const now = performance.now()
+      const dt = last.current ? now - last.current : 0
+      last.current = now
+      if (speaking || held) return
+      setLeft((l) => {
+        const next = l - dt
+        if (next <= 0) { clearInterval(id); close() }
+        return Math.max(0, next)
+      })
+    }, 100)
+    return () => { clearInterval(id); last.current = null }
+  }, [loading, speaking, held, closing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const text = welcome?.greeting || (welcome?.has_history ? s.welcomeBack(worker.name) : s.welcomeNew(worker.name))
   const nudges = welcome?.nudges || []
 
   const readAloud = async () => {
     if (speaking) { stopSpeaking(); setSpeaking(false); return }
+    setLeft(AUTO_CLOSE_MS)
     setSpeaking(true)
     const extra = nudges.map(nudgeSentence).join(' ')
-    const r = await speak(`${text} ${welcome?.greeting ? '' : extra}`, speechTag, language, { onEnd: () => setSpeaking(false) })
+    // After it has been read aloud, the card closes by itself.
+    const r = await speak(`${text} ${welcome?.greeting ? '' : extra}`, speechTag, language, {
+      onEnd: () => { setSpeaking(false); setTimeout(close, 1200) },
+    })
     if (r !== 'ok') setSpeaking(false)
   }
 
@@ -28,9 +57,12 @@ export default function WelcomeCard({ s, worker, language, speechTag, welcome, l
   }
 
   return (
-    <li className="animate-fade-up">
-      <div className="overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-brand-soft via-white to-white shadow-soft">
-        <div className="flex gap-3 p-4">
+    <li className={closing ? 'animate-collapse' : 'animate-pop'}
+      onPointerEnter={() => setHeld(true)} onPointerLeave={() => setHeld(false)}>
+      <div className="relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-brand-soft via-white to-amber-50/60 shadow-lift">
+        <button onClick={close} aria-label={s.close} title={s.close}
+          className="absolute right-2.5 top-2.5 z-10 rounded-full bg-white/80 p-1.5 text-muted shadow-sm transition hover:bg-white hover:text-ink"><X className="size-4" /></button>
+        <div className="flex gap-3 p-4 pr-11">
           <Logo size={44} tone="dark" className="shrink-0" />
           <div className="min-w-0 flex-1">
             {loading ? (
@@ -61,8 +93,8 @@ export default function WelcomeCard({ s, worker, language, speechTag, welcome, l
                     </p>
                     <p className="ml-9 mt-2 font-semibold">{s.nudgeAskPaid}</p>
                     <div className="ml-9 mt-2 grid grid-cols-2 gap-2">
-                      <BigChoice icon={CheckCircle2} tone="yes" label={s.yesPaid} onClick={() => onReply(s.replyYesPaid(n.employer_name))} />
-                      <BigChoice icon={XCircle} tone="no" label={s.notYet} onClick={() => onReply(s.replyNotYet(n.employer_name))} />
+                      <BigChoice icon={CheckCircle2} tone="yes" label={s.yesPaid} onClick={() => { onReply(s.replyYesPaid(n.employer_name)); close() }} />
+                      <BigChoice icon={XCircle} tone="no" label={s.notYet} onClick={() => { onReply(s.replyNotYet(n.employer_name)); close() }} />
                     </div>
                   </>
                 ) : (
@@ -75,6 +107,11 @@ export default function WelcomeCard({ s, worker, language, speechTag, welcome, l
               </li>
             ))}
           </ul>
+        )}
+        {!loading && (
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-brand/10" aria-hidden>
+            <div className="h-full bg-brand/60 transition-[width] duration-100 ease-linear" style={{ width: `${(left / AUTO_CLOSE_MS) * 100}%` }} />
+          </div>
         )}
       </div>
     </li>

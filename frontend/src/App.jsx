@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CircleAlert, CirclePlay, Info, Loader2, MessagesSquare, RefreshCw, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
+import { BellRing, CircleAlert, CircleCheck, CirclePlay, HandCoins, Info, Loader2, MessagesSquare, RefreshCw, TriangleAlert, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
 import { ApiError, api, inr } from './api'
 import { t } from './i18n'
 import { useCountUp } from './hooks'
@@ -9,6 +9,7 @@ import LedgerPanel from './components/LedgerPanel'
 import Login from './components/Login'
 import AccountDrawer from './components/AccountDrawer'
 import StoryIntro from './components/StoryIntro'
+import Celebrate from './components/Celebrate'
 
 const LEDGER_TYPES = new Set(['promise', 'work_day', 'payment'])
 // Hindsight extracts facts in the background after retain; re-check a few times to show learning live.
@@ -48,6 +49,9 @@ export default function App() {
   const [welcome, setWelcome] = useState(null)
   const [welcomeLoading, setWelcomeLoading] = useState(false)
   const [welcomeAt, setWelcomeAt] = useState(0) // the welcome card sits after the history loaded at login
+  const [welcomeOpen, setWelcomeOpen] = useState(true)
+  const [celebrating, setCelebrating] = useState(false)
+  const owedByEmployer = useRef(null)
   const [storyOpen, setStoryOpen] = useState(() => !readStored('hakdaar.storySeen'))
 
   const pollTimers = useRef([])
@@ -124,6 +128,8 @@ export default function App() {
     setLoadingWorker(true)
     setBanner(null); setLearning(null); setNewIds(new Set()); setRecalled([]); setLearned(EMPTY_LEARNED); setMemoryError(null)
     setWelcome(null)
+    setWelcomeOpen(true)
+    owedByEmployer.current = null
     setWelcomeLoading(true)
     // HakDaar speaks first: greeting from memory + follow-up nudges (loads in parallel with the chat).
     api.welcome(id)
@@ -253,6 +259,18 @@ export default function App() {
   }
 
   const openDrawer = (section) => setDrawer({ open: true, section })
+
+  // 🎉 when an employer that owed money has now paid everything.
+  useEffect(() => {
+    if (!ledger?.employers) return
+    const now = Object.fromEntries(ledger.employers.map((r) => [r.employer_name, r.amount_owed ?? 0]))
+    const before = owedByEmployer.current
+    owedByEmployer.current = now
+    if (before && Object.entries(now).some(([e, owed]) => owed === 0 && (before[e] ?? 0) > 0)) {
+      setCelebrating(true)
+      setTimeout(() => setCelebrating(false), 3800)
+    }
+  }, [ledger])
   const totals = ledger?.totals || { amount_earned: 0, amount_paid: 0, amount_owed: 0 }
   const repAlerts = alerts.filter((a) => a.type === 'employer_reputation').length
 
@@ -331,6 +349,13 @@ export default function App() {
               </button>
             </div>
             <div className="flex items-center gap-1.5">
+              {!welcomeOpen && welcome?.nudges?.length > 0 && (
+                <button onClick={() => setWelcomeOpen(true)} title={s.reminders}
+                  className="relative grid size-10 place-items-center rounded-xl bg-danger-soft text-danger transition hover:bg-danger hover:text-white animate-pop">
+                  <BellRing className="size-5" />
+                  <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-danger text-[11px] font-bold text-white ring-2 ring-white">{welcome.nudges.length}</span>
+                </button>
+              )}
               <button onClick={() => setStoryOpen(true)} title={s.help}
                 className="grid size-10 place-items-center rounded-xl bg-amber-100 text-amber-800 transition hover:bg-amber-200">
                 <CirclePlay className="size-5" />
@@ -344,6 +369,7 @@ export default function App() {
               onSend={send} onRetry={retry} onUndo={undo} banner={banner} onDismissBanner={() => setBanner(null)}
               learning={learning} onOpenMemory={() => openDrawer('memories')}
               welcome={welcome} welcomeLoading={welcomeLoading} welcomeAt={welcomeAt}
+              welcomeOpen={welcomeOpen} onCloseWelcome={() => setWelcomeOpen(false)}
               employers={(ledger?.employers || []).map((r) => r.employer_name)}
             />
           </div>
@@ -371,6 +397,7 @@ export default function App() {
       </nav>
 
       <StoryIntro s={s} language={language} open={storyOpen} onClose={closeStory} />
+      {celebrating && <Celebrate text={s.celebrate} />}
 
       <AccountDrawer
         s={s} open={drawer.open} section={drawer.section} onClose={() => setDrawer((d) => ({ ...d, open: false }))}
@@ -388,27 +415,31 @@ export default function App() {
   )
 }
 
-/** Earned / Paid / Owed tiles. Each has a tooltip explaining the number. */
+/** Earned / Paid / Owed tiles, each with an icon and a tooltip explaining the number. */
 function Wallet({ s, totals, onClick }) {
   const earned = useCountUp(totals.amount_earned)
   const paid = useCountUp(totals.amount_paid)
   const owed = useCountUp(totals.amount_owed)
   const [eHelp, pHelp, oHelp] = s.howCalcLines.map(([, v]) => v)
-  const tile = 'rounded-xl px-3 py-1.5 text-right leading-tight transition hover:-translate-y-0.5'
+  const isOwed = totals.amount_owed > 0
+  const tile = 'flex flex-1 items-center gap-2 rounded-2xl px-2.5 py-1.5 text-left leading-tight transition hover:-translate-y-0.5 sm:flex-none'
   return (
     <div className="flex w-full gap-1.5 sm:w-auto">
-      <button onClick={onClick} title={eHelp} className={`${tile} flex-1 bg-sand`}>
-        <span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.earned}</span>
-        <span className="font-bold tabular-nums">{inr(earned)}</span>
+      <button onClick={onClick} title={eHelp} className={`${tile} bg-white ring-1 ring-black/5`}>
+        <HandCoins className="hidden size-5 shrink-0 text-amber-600 sm:block" />
+        <span><span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.earned}</span>
+          <span className="font-bold tabular-nums">{inr(earned)}</span></span>
       </button>
-      <button onClick={onClick} title={pHelp} className={`${tile} flex-1 bg-sand`}>
-        <span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.paid}</span>
-        <span className="font-bold tabular-nums">{inr(paid)}</span>
+      <button onClick={onClick} title={pHelp} className={`${tile} bg-white ring-1 ring-black/5`}>
+        <CircleCheck className="hidden size-5 shrink-0 text-brand sm:block" />
+        <span><span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.paid}</span>
+          <span className="font-bold tabular-nums">{inr(paid)}</span></span>
       </button>
       <button onClick={onClick} title={oHelp}
-        className={`${tile} flex-1 ${totals.amount_owed > 0 ? 'bg-danger text-white' : 'bg-brand-soft text-brand'}`}>
-        <span className={`block text-[11px] font-semibold uppercase ${totals.amount_owed > 0 ? 'text-white/85' : ''}`}>{s.wallet.owed}</span>
-        <span className="font-extrabold tabular-nums">{inr(owed)}</span>
+        className={`${tile} ${isOwed ? 'bg-gradient-to-br from-red-500 to-danger text-white shadow-lift' : 'bg-brand-soft text-brand ring-1 ring-brand/20'}`}>
+        {isOwed ? <TriangleAlert className="hidden size-5 shrink-0 sm:block" /> : <CircleCheck className="hidden size-5 shrink-0 sm:block" />}
+        <span><span className={`block text-[11px] font-semibold uppercase ${isOwed ? 'text-white/85' : ''}`}>{s.wallet.owed}</span>
+          <span className="font-extrabold tabular-nums">{inr(owed)}</span></span>
       </button>
     </div>
   )

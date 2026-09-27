@@ -108,8 +108,11 @@ function EmployerRow({ r, s, onUndo }) {
         <p className="mt-2 flex items-center gap-1.5 text-sm text-warn"><CircleAlert className="size-4" /> {s.rateUnknown}</p>
       ) : (
         <div className="mt-3">
-          <div className="h-2 overflow-hidden rounded-full bg-white">
-            <div className={`h-full rounded-full transition-all duration-700 ${isOwed ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${pct}%` }} />
+          <div className="flex items-center gap-3">
+            <Ring pct={pct} warn={isOwed} />
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white">
+              <div className={`h-full rounded-full transition-all duration-700 ${isOwed ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${pct}%` }} />
+            </div>
           </div>
           <p className="mt-1 flex justify-between text-xs text-muted">
             <span>{s.paid} {inr(r.amount_paid)}</span>
@@ -277,5 +280,20 @@ function ReputationAlert({ a, s }) {
       )}
       {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
     </li>
+  )
+}
+
+/** Paid-vs-earned ring: a quick visual answer to "how much of my money did I get?" */
+function Ring({ pct, warn }) {
+  const r = 18
+  const c = 2 * Math.PI * r
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0" aria-label={`${pct}% paid`}>
+      <circle cx="24" cy="24" r={r} fill="none" stroke="#fff" strokeWidth="6" />
+      <circle cx="24" cy="24" r={r} fill="none" stroke={warn ? '#D97706' : '#1F6F4A'} strokeWidth="6" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 24 24)"
+        style={{ transition: 'stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)' }} />
+      <text x="24" y="28" textAnchor="middle" fontSize={pct >= 100 ? 9.5 : 11} fontWeight="800" fill={warn ? '#B45309' : '#1F6F4A'}>{pct}%</text>
+    </svg>
   )
 }
