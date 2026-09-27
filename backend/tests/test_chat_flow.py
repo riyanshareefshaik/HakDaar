@@ -55,7 +55,8 @@ def fake(monkeypatch):
     fm.next_events = []
     fm.replies = []
 
-    async def extract(message, known):
+    async def extract(message, known, history=None):
+        fm.last_history = history
         return fm.next_events
 
     async def reply(**kw):
@@ -233,3 +234,13 @@ def test_fixed_bonus_counts_in_ledger(client, fake):
     row = r["ledger"][0]
     assert (row["rate_per_day"], row["fixed_amount"], row["amount_earned"], row["amount_owed"]) == (600, 2000, 5000, 2000)
     assert "+ ₹2,000 fixed" in [a for a in r["alerts"] if a["type"] == "underpayment"][0]["message"]
+
+
+def test_fixed_total_for_days_and_context_passed(client, fake):
+    w = client.post("/workers", json={"name": "Parker", "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="work_day", employer_name="Riyan", days=5), message="I worked 5 days for Riyan")
+    r = say(client, fake, w, ExtractedEvent(type="promise", amount=50000, basis="fixed"), message="50000INR")
+    row = r["ledger"][0]
+    assert (row["employer_name"], row["amount_earned"], row["amount_owed"], row["status"]) == ("Riyan", 50000, 50000, "owed")
+    # extraction saw the earlier turns, so a bare "50000INR" can be understood
+    assert any("5 days" in m["content"] for m in fake.last_history)

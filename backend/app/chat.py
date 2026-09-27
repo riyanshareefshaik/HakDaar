@@ -274,7 +274,7 @@ async def handle_message(worker: dict, message: str) -> dict:
 
     # 1. Extract structured facts. If Groq is down this raises LLMUnavailable -> 503 upstream,
     #    before we store anything, so a retry doesn't double-count.
-    extracted = await llm.extract_events(message, db.employer_names_for_worker(worker_id))
+    extracted = await llm.extract_events(message, db.employer_names_for_worker(worker_id), history=history)
     rows, others = to_ledger_events(extracted, worker_id)
 
     # 2. Store message + events in SQLite and compute the exact ledger.

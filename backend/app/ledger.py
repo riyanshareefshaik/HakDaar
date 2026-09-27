@@ -38,12 +38,13 @@ def summarize(events: list[dict]) -> list[dict]:
     result = []
     for row in by_employer.values():
         rate, days, paid, fixed = row["rate_per_day"], row["days_worked"], row["amount_paid"], row["fixed_amount"]
-        if rate is None and (days > 0 or fixed == 0):
-            # Days worked (or nothing agreed at all) but no daily rate known: can't compute honestly.
+        if rate is None and fixed == 0:
+            # Nothing agreed yet (no daily rate, no fixed total): can't compute honestly.
             earned = owed = advance = None
             status = "unknown_rate"
         else:
-            earned_d = (rate or Decimal(0)) * days + fixed
+            # With only a fixed total, days are informational ("₹50,000 for the 5 days").
+            earned_d = (rate * days if rate is not None else Decimal(0)) + fixed
             earned = _rupees(earned_d)
             owed = _rupees(max(earned_d - paid, Decimal(0)))
             advance = _rupees(max(paid - earned_d, Decimal(0)))

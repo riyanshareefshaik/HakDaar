@@ -166,9 +166,10 @@ Return ONLY JSON: {{"events": [ ... ]}}. Each event:
 Rules:
 - promise: employer promised money.
   basis "day": a DAILY rate; amount = rupees per day.
-  basis "fixed": a fixed amount / bonus / lump sum for work the worker says they have ALREADY DONE
-  (e.g. "they promised 2000 bonus for the extra hours I worked"); amount = that total.
-  A weekly/monthly salary, or a fixed amount for work not yet done: type "other" with a note.
+  basis "fixed": an agreed TOTAL for a job or period, or a bonus, for work the worker has done or is doing
+  (e.g. "₹50,000 for the 5 days", "a 2000 bonus for the extra hours I worked"); amount = that total.
+  Do NOT also convert a fixed total into a daily rate.
+  A monthly salary, or money promised for work not started yet: type "other" with a note.
 - Amounts are rupees. If the worker uses another currency, still copy the number and mention the currency in notes.
 - work_day: the worker worked. days = number of days worked mentioned in THIS message (default 1 for "I worked today"). Half day = 0.5.
   If the worker states a running TOTAL ("I have worked 8 days so far"), set is_total true and days = that total.
@@ -187,13 +188,26 @@ KNOWN EMPLOYERS for this worker: {employers}
 """
 
 
-async def extract_events(message: str, known_employers: list[str]) -> list[ExtractedEvent]:
+CONTEXT_BLOCK = """
+RECENT CONVERSATION (context only, oldest first). Use it to understand short answers, e.g. if HakDaar asked
+"how much did they promise?" and the NEW MESSAGE is "50000", that is a promise. Extract facts ONLY from the
+NEW MESSAGE; never re-extract facts that were already stated in these earlier turns.
+{turns}
+"""
+
+
+async def extract_events(message: str, known_employers: list[str],
+                         history: list[dict] | None = None) -> list[ExtractedEvent]:
     prompt = EXTRACTION_PROMPT.format(
         today=date.today().isoformat(),
         employers=", ".join(known_employers) if known_employers else "(none yet)",
     )
+    if history:
+        turns = "\n".join(f"{'Worker' if m['role'] == 'user' else 'HakDaar'}: {m['content'][:400]}"
+                          for m in history[-6:])
+        prompt += CONTEXT_BLOCK.format(turns=turns)
     raw = await _chat(
-        [{"role": "system", "content": prompt}, {"role": "user", "content": message}],
+        [{"role": "system", "content": prompt}, {"role": "user", "content": f"NEW MESSAGE: {message}"}],
         json_mode=True, temperature=0.0, max_tokens=800,
     )
     try:
@@ -221,7 +235,10 @@ Keep it under 80 words. Be warm and respectful. No markdown tables, no headings.
 STRICT RULES ABOUT NUMBERS:
 - Only use rupee amounts and day counts that appear in LEDGER or ALERTS below. Never add, subtract or multiply yourself.
 - If the worker asks how much is owed, read the "owed" figure from LEDGER exactly.
-- If a rate is unknown, kindly ask what daily rate was promised.
+- If LEDGER has no owed figure for an employer (nothing recorded, or rate not known), do NOT state any owed
+  amount, even if the worker mentioned numbers earlier. Instead ask for the missing detail (employer name,
+  promised rate or total, days worked, amount received) in one short question.
+- If a rate is unknown, kindly ask what daily rate or total amount was promised.
 
 WHAT TO DO:
 - Confirm what you noted from their message (from NOTED THIS TURN) in one short line.
