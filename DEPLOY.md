@@ -76,6 +76,8 @@ Open https://hakdaar.me. Caddy gets the HTTPS certificate by itself on the first
 - At your registrar, replace the nameservers with the two Cloudflare shows you.
 - Wait for Cloudflare to say the site is **Active**.
 
+**Shortcut for steps 2 and 3:** once Cloudflare says Active, run `./scripts/go-live.sh`. It does all of the following for you (Docker, secret, tunnel, DNS) and keeps the Mac awake.
+
 **2. Run HakDaar in production mode on the Mac.**
 - Stop the dev servers first (Ctrl+C in both terminals).
 - In `.env`, set `SITE_ADDRESS=:80` and a `SESSION_SECRET`.
