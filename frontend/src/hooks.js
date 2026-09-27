@@ -64,21 +64,91 @@ const PER_DAY = { en: ' per day', hi: ' प्रति दिन', te: ' రో
  *  "₹50,000" -> "fifty thousand rupees" (English) / "50000 रुपये" (Hindi) / "50000 రూపాయలు" (Telugu).
  * Indian digit grouping ("1,25,000") confuses speech engines, which is why amounts sounded like "5 00, 00".
  */
+// Hindi 0–99 are irregular words, so they are listed in full.
+const HI_0_99 = ('शून्य एक दो तीन चार पाँच छह सात आठ नौ दस ग्यारह बारह तेरह चौदह पंद्रह सोलह सत्रह अठारह उन्नीस ' +
+  'बीस इक्कीस बाईस तेईस चौबीस पच्चीस छब्बीस सत्ताईस अट्ठाईस उनतीस तीस इकतीस बत्तीस तैंतीस चौंतीस पैंतीस छत्तीस ' +
+  'सैंतीस अड़तीस उनतालीस चालीस इकतालीस बयालीस तैंतालीस चवालीस पैंतालीस छियालीस सैंतालीस अड़तालीस उनचास पचास ' +
+  'इक्यावन बावन तिरेपन चौवन पचपन छप्पन सत्तावन अट्ठावन उनसठ साठ इकसठ बासठ तिरेसठ चौंसठ पैंसठ छियासठ सड़सठ ' +
+  'अड़सठ उनहत्तर सत्तर इकहत्तर बहत्तर तिहत्तर चौहत्तर पचहत्तर छिहत्तर सतहत्तर अठहत्तर उन्यासी अस्सी इक्यासी ' +
+  'बयासी तिरासी चौरासी पचासी छियासी सत्तासी अट्ठासी नवासी नब्बे इक्यानवे बानवे तिरानवे चौरानवे पंचानवे छियानवे ' +
+  'सत्तानवे अट्ठानवे निन्यानवे').split(' ')
+
+function numberToWordsHi(n) {
+  n = Math.floor(Math.abs(n))
+  if (n < 100) return HI_0_99[n]
+  const parts = []
+  const scales = [[1e7, 'करोड़'], [1e5, 'लाख'], [1e3, 'हज़ार'], [100, 'सौ']]
+  for (const [size, name] of scales) {
+    const q = Math.floor(n / size)
+    if (q) { parts.push(`${numberToWordsHi(q)} ${name}`); n %= size }
+  }
+  if (n) parts.push(HI_0_99[n])
+  return parts.join(' ')
+}
+
+// Telugu: 0–19 and the tens are words; 21–99 are "tens ones" (ఇరవై ఐదు).
+const TE_0_19 = 'సున్నా ఒకటి రెండు మూడు నాలుగు ఐదు ఆరు ఏడు ఎనిమిది తొమ్మిది పది పదకొండు పన్నెండు పదమూడు పద్నాలుగు పదిహేను పదహారు పదిహేడు పద్దెనిమిది పందొమ్మిది'.split(' ')
+const TE_TENS = ['', '', 'ఇరవై', 'ముప్పై', 'నలభై', 'యాభై', 'అరవై', 'డెబ్బై', 'ఎనభై', 'తొంభై']
+// Multiplier forms used before వందలు/వేలు/లక్షలు (ఒకటి -> ఒక, etc.)
+const TE_MULT = { 1: 'ఒక', 2: 'రెండు', 3: 'మూడు', 4: 'నాలుగు', 5: 'ఐదు', 6: 'ఆరు', 7: 'ఏడు', 8: 'ఎనిమిది', 9: 'తొమ్మిది' }
+
+function teBelow100(n) {
+  if (n < 20) return TE_0_19[n]
+  return TE_TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + TE_0_19[n % 10] : '')
+}
+function teMult(n) { return n < 10 ? TE_MULT[n] : numberToWordsTe(n) }
+
+/** attributive: form used before a noun ("ఐదు వేల రూపాయలు" rather than "ఐదు వేలు"). */
+function numberToWordsTe(n, attributive = false) {
+  n = Math.floor(Math.abs(n))
+  if (n < 100) return teBelow100(n)
+  const parts = []
+  const scales = [
+    [1e7, 'కోటి', 'కోట్లు', 'కోట్ల'],
+    [1e5, 'లక్ష', 'లక్షలు', 'లక్షల'],
+    [1e3, 'వెయ్యి', 'వేలు', 'వేల'],
+    [100, 'వంద', 'వందలు', 'వందల'],
+  ]
+  for (const [size, one, many, manyJoined] of scales) {
+    const q = Math.floor(n / size)
+    if (!q) continue
+    n %= size
+    const joined = n > 0 || attributive
+    if (q === 1) parts.push(size === 100 && n > 0 ? 'నూట' : one)
+    else parts.push(`${teMult(q)} ${joined ? manyJoined : many}`)
+  }
+  if (n) parts.push(teBelow100(n))
+  return parts.join(' ')
+}
+
+/** Spell a number the way people say it, in the reply's language (Indian numbering: lakh, crore). */
+export function numberToWords(n, lang, { attributive = false } = {}) {
+  if (lang === 'hi') return numberToWordsHi(n)
+  if (lang === 'te') return numberToWordsTe(n, attributive)
+  return numberToWordsEn(n)
+}
+
+/**
+ * Make text sound right when spoken. Every amount and count becomes words in the reply's language:
+ *   "₹5,000" -> "five thousand rupees" / "पाँच हज़ार रुपये" / "ఐదు వేల రూపాయలు"
+ * Speech engines otherwise read "5,000" or "5000" digit by digit.
+ */
 export function speakableText(text, lang) {
   const word = RUPEES[lang] || RUPEES.en
-  const toSpoken = (digits) => {
-    const n = Number(digits.replace(/,/g, ''))
-    if (!Number.isFinite(n)) return digits
-    return lang === 'en' ? numberToWordsEn(n) : String(n)
+  const say = (digits, attributive = false) => {
+    const clean = digits.replace(/,/g, '')
+    const n = Number(clean)
+    if (!Number.isFinite(n) || clean.includes('.')) return clean
+    return numberToWords(n, lang, { attributive })
   }
   return text
-    // ₹50,000 / ₹ 50,000 / Rs. 50,000 / 50,000 ₹ / 50000 INR
-    .replace(/(?:₹|\bRs\.?|\bINR)\s*([\d,]+(?:\.\d+)?)/gi, (_, d) => `${toSpoken(d)} ${word}`)
-    .replace(/([\d,]+(?:\.\d+)?)\s*(?:₹|INR\b|rs\b\.?|rupees?|रुपये|रुपए|రూపాయలు)/gi, (_, d) => `${toSpoken(d)} ${word}`)
-    .replace(/\s*×\s*/g, lang === 'en' ? ' times ' : ' x ')
-    // any remaining grouped number: 1,25,000 -> 125000
-    .replace(/\d{1,3}(?:,\d{2,3})+/g, (d) => (lang === 'en' ? numberToWordsEn(Number(d.replace(/,/g, ''))) : d.replace(/,/g, '')))
+    // ₹5,000 / ₹ 5,000 / Rs. 5,000 / 5,000 ₹ / 5000INR / 5000 rupees
+    .replace(/(?:₹|\bRs\.?|\bINR)\s*(\d[\d,]*(?:\.\d+)?)/gi, (_, d) => `${say(d, true)} ${word}`)
+    .replace(/(\d[\d,]*(?:\.\d+)?)\s*(?:₹|INR\b|rs\b\.?|rupees?|रुपये|रुपए|రూపాయలు)/gi, (_, d) => `${say(d, true)} ${word}`)
+    .replace(/\s*×\s*/g, lang === 'en' ? ' times ' : lang === 'hi' ? ' गुणा ' : ' గుణించి ')
     .replace(/\s*\/\s*(day|दिन|రోజు)/gi, PER_DAY[lang] || PER_DAY.en)
+    // every remaining number (days, dates, grouped numbers)
+    .replace(/\d[\d,]*(?:\.\d+)?/g, (d) => say(d.replace(/,$/, '')) + (d.endsWith(',') ? ',' : ''))
     .replace(/[*_#`>|~]/g, ' ')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
     .replace(/\s+/g, ' ')
