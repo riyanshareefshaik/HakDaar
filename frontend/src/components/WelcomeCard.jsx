@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Clock, HelpCircle, Loader2, Volume2, VolumeX, X, XCircle } from 'lucide-react'
+import { Check, Clock, HelpCircle, Loader2, Volume2, VolumeX, X } from 'lucide-react'
 import { inr } from '../api'
 import { speak, stopSpeaking } from '../hooks'
 import Logo from './Logo'
@@ -57,51 +57,49 @@ export default function WelcomeCard({ s, worker, language, speechTag, welcome, l
   }
 
   return (
-    <li className={closing ? 'animate-collapse' : 'animate-pop'}
+    <li className={closing ? 'animate-collapse' : 'animate-rise'}
       onPointerEnter={() => setHeld(true)} onPointerLeave={() => setHeld(false)}>
-      <div className="relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-brand-soft via-white to-amber-50/60 shadow-lift">
+      <div className="relative overflow-hidden rounded-[24px] border border-line-strong/60 bg-card">
         <button onClick={close} aria-label={s.close} title={s.close}
-          className="absolute right-2.5 top-2.5 z-10 rounded-full bg-white/80 p-1.5 text-muted shadow-sm transition hover:bg-white hover:text-ink"><X className="size-4" /></button>
-        <div className="flex gap-3 p-4 pr-11">
-          <Logo size={44} tone="dark" className="shrink-0" />
+          className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-muted transition hover:bg-white/10 hover:text-white"><X className="size-4" /></button>
+        <div className="flex gap-3.5 p-5 pr-12">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white"><Logo size={26} tone="dark" /></span>
           <div className="min-w-0 flex-1">
             {loading ? (
               <p className="flex items-center gap-2 text-muted"><Loader2 className="size-4 animate-spin" /> {s.typing}</p>
             ) : (
-              <p className="text-lg leading-relaxed">{text}</p>
+              <p className="text-[17px] leading-relaxed text-white">{text}</p>
             )}
-            <button onClick={readAloud} disabled={loading}
-              className={`mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold transition ${speaking ? 'bg-brand text-white' : 'bg-white text-brand ring-1 ring-brand/20 hover:bg-brand-soft'}`}>
+            <button onClick={readAloud} disabled={loading} className="btn-ghost -ml-3 mt-1.5">
               {speaking ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />} {speaking ? s.stopReading : s.listen}
             </button>
           </div>
         </div>
 
         {nudges.length > 0 && (
-          <ul className="space-y-2 border-t border-brand/10 bg-white/70 p-3">
+          <ul className="divide-y divide-line border-t border-line">
             {nudges.map((n) => (
-              <li key={n.type + n.employer_name} className={`rounded-2xl p-3 ${n.type === 'owed' ? 'bg-danger-soft' : 'bg-warn-soft'}`}>
+              <li key={n.type + n.employer_name} className="px-5 py-4">
                 {n.type === 'owed' ? (
                   <>
-                    <p className="flex items-start gap-2 font-bold text-danger">
-                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-danger text-sm text-white">₹</span>
-                      {s.nudgeOwed(n.employer_name, inr(n.amount_owed))}
+                    <p className="flex items-baseline justify-between gap-3">
+                      <span className="text-fg2">{n.employer_name}</span>
+                      <span className="font-display text-2xl tabular-nums text-owed">{inr(n.amount_owed)}</span>
                     </p>
-                    <p className="ml-9 mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-ink/70">
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
                       {n.days_since > 0 && <span className="flex items-center gap-1"><Clock className="size-3.5" /> {s.nudgeDays(n.days_since)}</span>}
                       {n.promised_later && <span>· {s.nudgeLater}</span>}
                     </p>
-                    <p className="ml-9 mt-2 font-semibold">{s.nudgeAskPaid}</p>
-                    <div className="ml-9 mt-2 grid grid-cols-2 gap-2">
-                      <BigChoice icon={CheckCircle2} tone="yes" label={s.yesPaid} onClick={() => { onReply(s.replyYesPaid(n.employer_name)); close() }} />
-                      <BigChoice icon={XCircle} tone="no" label={s.notYet} onClick={() => { onReply(s.replyNotYet(n.employer_name)); close() }} />
+                    <p className="mt-3 font-medium text-white">{s.nudgeAskPaid}</p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      <button onClick={() => { onReply(s.replyYesPaid(n.employer_name)); close() }} className="btn-white px-5"><Check className="size-4" /> {s.yesPaid}</button>
+                      <button onClick={() => { onReply(s.replyNotYet(n.employer_name)); close() }} className="btn-dark px-5"><X className="size-4" /> {s.notYet}</button>
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="flex flex-1 items-center gap-2 font-bold text-warn"><HelpCircle className="size-5 shrink-0" /> {s.nudgeRate(n.employer_name)}</p>
-                    <button onClick={() => onTellRate(n.employer_name)}
-                      className="rounded-xl bg-warn px-4 py-2 font-bold text-white shadow-soft">{s.tellRate}</button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="flex flex-1 items-center gap-2 text-white"><HelpCircle className="size-4 shrink-0 text-warn" /> {s.nudgeRate(n.employer_name)}</p>
+                    <button onClick={() => onTellRate(n.employer_name)} className="btn-white px-5">{s.tellRate}</button>
                   </div>
                 )}
               </li>
@@ -109,20 +107,11 @@ export default function WelcomeCard({ s, worker, language, speechTag, welcome, l
           </ul>
         )}
         {!loading && (
-          <div className="absolute inset-x-0 bottom-0 h-1 bg-brand/10" aria-hidden>
-            <div className="h-full bg-brand/60 transition-[width] duration-100 ease-linear" style={{ width: `${(left / AUTO_CLOSE_MS) * 100}%` }} />
+          <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/5" aria-hidden>
+            <div className="h-full bg-white/40 transition-[width] duration-100 ease-linear" style={{ width: `${(left / AUTO_CLOSE_MS) * 100}%` }} />
           </div>
         )}
       </div>
     </li>
-  )
-}
-
-function BigChoice({ icon: Icon, label, tone, onClick }) {
-  return (
-    <button onClick={onClick}
-      className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-base font-bold shadow-sm transition active:scale-95 ${tone === 'yes' ? 'bg-brand text-white hover:bg-brand-dark' : 'bg-white text-danger ring-1 ring-danger/30 hover:bg-danger-soft'}`}>
-      <Icon className="size-5" /> {label}
-    </button>
   )
 }

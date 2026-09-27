@@ -75,33 +75,33 @@ export default function LegalModal({ doc, onClose, note }) {
   if (!doc) return null
   const d = DOCS[doc]
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={d.title}>
-      <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between border-b border-black/10 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-md animate-fade sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={d.title}>
+      <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-t-[28px] border border-line bg-surface shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-sheet sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between border-b border-line px-6 py-5">
           <div>
-            <h2 className="text-xl font-bold">{d.title}</h2>
-            <p className="text-sm text-muted">Last updated {UPDATED}</p>
+            <h2 className="font-display text-3xl leading-none text-white">{d.title}</h2>
+            <p className="mt-2 text-sm text-muted">Last updated {UPDATED}</p>
           </div>
-          <button onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-muted hover:bg-sand hover:text-ink"><X className="size-5" /></button>
+          <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-muted hover:bg-white/10 hover:text-white"><X className="size-5" /></button>
         </div>
-        <div className="overflow-y-auto px-6 py-5 text-[15px] leading-relaxed text-ink/90">
+        <div className="scroll-thin overflow-y-auto px-6 py-5 text-[15px] leading-relaxed text-fg2/90">
           {note && (
-            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
-              <p className="mb-1 font-semibold">{note[0]}</p>
+            <div className="mb-5 rounded-2xl border border-line-strong/50 bg-card p-4 text-sm">
+              <p className="mb-1 font-semibold text-white">{note[0]}</p>
               <ul className="list-disc space-y-0.5 pl-5">{note.slice(1).map((l) => <li key={l}>{l}</li>)}</ul>
             </div>
           )}
           {d.sections.map(([h, paras], i) => (
             <section key={h} className="mb-5">
-              <h3 className="mb-1.5 font-semibold">{i + 1}. {h}</h3>
+              <h3 className="mb-1.5 font-semibold text-white">{i + 1}. {h}</h3>
               {paras.length > 1
                 ? <ul className="list-disc space-y-1 pl-5">{paras.map((p) => <li key={p}>{p}</li>)}</ul>
                 : <p>{paras[0]}</p>}
             </section>
           ))}
         </div>
-        <div className="border-t border-black/10 px-6 py-3 text-right">
-          <button onClick={onClose} className="rounded-lg bg-brand px-5 py-2 font-semibold text-white hover:bg-brand-dark">OK</button>
+        <div className="border-t border-line px-6 py-4 text-right">
+          <button onClick={onClose} className="btn-white px-6">OK</button>
         </div>
       </div>
     </div>

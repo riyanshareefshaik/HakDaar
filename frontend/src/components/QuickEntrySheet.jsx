@@ -42,62 +42,61 @@ export default function QuickEntrySheet({ s, mode, employers, defaultEmployer, o
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 backdrop-blur-[2px] sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-t-3xl bg-cream p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl animate-slide-up sm:rounded-3xl"
-        onClick={(ev) => ev.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="grid size-11 place-items-center rounded-2xl bg-brand text-white"><Icon className="size-6" /></span>
-          <h3 className="flex-1 text-lg font-bold leading-tight">{s[TITLES[mode]]}</h3>
-          <button onClick={onClose} aria-label={s.close} className="rounded-full p-1.5 text-muted hover:bg-sand"><X className="size-6" /></button>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 backdrop-blur-md sm:items-center animate-fade" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-[28px] border border-line bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-sheet sm:rounded-[28px]"
+        onClick={(ev) => ev.stopPropagation()} role="dialog" aria-modal="true" aria-label={s[TITLES[mode]]}>
+        <div className="mb-5 flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-full bg-white text-black"><Icon className="size-5" /></span>
+          <h3 className="flex-1 text-lg font-semibold leading-tight text-white">{s[TITLES[mode]]}</h3>
+          <button onClick={onClose} aria-label={s.close} className="rounded-full p-1.5 text-muted hover:bg-white/10 hover:text-white"><X className="size-5" /></button>
         </div>
 
         {/* employer */}
-        <p className="mb-1.5 text-sm font-semibold text-muted">{s.qeEmployer}</p>
+        <p className="eyebrow mb-2">{s.qeEmployer}</p>
         <div className="mb-3 flex flex-wrap gap-2">
           {employers.map((name) => (
             <button key={name} onClick={() => { setEmployer(name); setTyping(false) }}
-              className={`rounded-xl px-3 py-2 font-semibold transition ${!typing && employer === name ? 'bg-brand text-white shadow-soft' : 'bg-white ring-1 ring-black/10'}`}>
+              className={`rounded-full px-4 py-2 text-[14.5px] font-medium transition ${!typing && employer === name ? 'bg-white text-black' : 'border border-line-strong bg-pill text-fg2 hover:text-white'}`}>
               {name}
             </button>
           ))}
-          <button onClick={() => { setTyping(true); setEmployer('') }}
-            className={`grid size-10 place-items-center rounded-xl transition ${typing ? 'bg-brand text-white' : 'bg-white ring-1 ring-black/10'}`} aria-label={s.qeEmployerPh}>
+          <button onClick={() => { setTyping(true); setEmployer('') }} aria-label={s.qeEmployerPh}
+            className={`grid size-10 place-items-center rounded-full transition ${typing ? 'bg-white text-black' : 'border border-line-strong bg-pill text-fg2 hover:text-white'}`}>
             <Plus className="size-5" />
           </button>
         </div>
         {typing && (
-          <input autoFocus value={employer} onChange={(ev) => setEmployer(ev.target.value)} placeholder={s.qeEmployerPh}
-            className="mb-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-lg outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+          <input autoFocus value={employer} onChange={(ev) => setEmployer(ev.target.value)} placeholder={s.qeEmployerPh} className="field mb-3" />
         )}
 
         {mode === 'worked' ? (
-          <div className="my-4 flex items-center justify-center gap-5">
+          <div className="my-6 flex items-center justify-center gap-6">
             <button onClick={() => setDays((d) => Math.max(0.5, d - (d > 1 ? 1 : 0.5)))} aria-label="-"
-              className="grid size-16 place-items-center rounded-2xl bg-white text-ink shadow-soft ring-1 ring-black/5 active:scale-95"><Minus className="size-8" /></button>
+              className="grid size-14 place-items-center rounded-full border border-line-strong bg-pill text-white active:scale-95"><Minus className="size-6" /></button>
             <div className="w-28 text-center">
-              <div className="text-6xl font-extrabold tabular-nums text-brand">{days}</div>
-              <div className="text-sm font-semibold text-muted">{s.days}</div>
+              <div className="font-display text-6xl tabular-nums text-white">{days}</div>
+              <div className="mt-1 text-sm text-muted">{days === 1 ? s.day1 : s.days}</div>
             </div>
             <button onClick={() => setDays((d) => Math.min(60, d < 1 ? 1 : d + 1))} aria-label="+"
-              className="grid size-16 place-items-center rounded-2xl bg-brand text-white shadow-soft active:scale-95"><Plus className="size-8" /></button>
+              className="grid size-14 place-items-center rounded-full bg-white text-black active:scale-95"><Plus className="size-6" /></button>
           </div>
         ) : (
           <>
             {mode === 'promise' && (
-              <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-sand p-1">
+              <div className="mb-3 grid grid-cols-2 rounded-full bg-white p-1">
                 {[['day', s.qePerDay], ['fixed', s.qeTotal]].map(([k, label]) => (
                   <button key={k} onClick={() => setBasis(k)}
-                    className={`rounded-lg py-2 font-semibold ${basis === k ? 'bg-white text-brand shadow-soft' : 'text-muted'}`}>{label}</button>
+                    className={`rounded-full py-2 text-[14.5px] font-medium transition ${basis === k ? 'bg-black text-white' : 'text-[#2e2e2e] opacity-60'}`}>{label}</button>
                 ))}
               </div>
             )}
-            <div className="mb-3 rounded-2xl bg-white px-4 py-3 text-right text-4xl font-extrabold tabular-nums shadow-inner ring-1 ring-black/5">
-              ₹{amount ? Number(amount).toLocaleString('en-IN') : <span className="text-muted/40">0</span>}
+            <div className="mb-3 rounded-2xl border border-line bg-card px-5 py-3 text-right font-display text-4xl tabular-nums text-white">
+              ₹{amount ? Number(amount).toLocaleString('en-IN') : <span className="text-muted/50">0</span>}
             </div>
             <div className="grid grid-cols-3 gap-2">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del'].map((k) => (
                 <button key={k} onClick={() => press(k)} aria-label={k === 'del' ? 'delete' : k}
-                  className="grid h-14 place-items-center rounded-2xl bg-white text-2xl font-bold shadow-sm ring-1 ring-black/5 transition active:scale-95 active:bg-brand-soft">
+                  className="grid h-14 place-items-center rounded-2xl border border-line bg-card text-2xl font-medium text-white transition hover:bg-raised active:scale-95">
                   {k === 'del' ? <Delete className="size-6" /> : k}
                 </button>
               ))}
@@ -105,9 +104,8 @@ export default function QuickEntrySheet({ s, mode, employers, defaultEmployer, o
           </>
         )}
 
-        <button onClick={submit} disabled={!valid}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand py-4 text-xl font-bold text-white shadow-soft transition active:scale-[.99] disabled:opacity-40">
-          <Check className="size-6" /> {s.qeSave}
+        <button onClick={submit} disabled={!valid} className="btn-white mt-5 w-full py-3.5 text-base">
+          <Check className="size-5" /> {s.qeSave}
         </button>
       </div>
     </div>

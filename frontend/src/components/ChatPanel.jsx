@@ -1,23 +1,22 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, CircleAlert, CircleHelp, Loader2,
-  Mic, PenLine, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, VolumeX, X,
+  Check, Mic, RefreshCw, SendHorizontal, Sparkles, Square, Undo2, Volume2, VolumeX, X,
 } from 'lucide-react'
-import { inr } from '../api'
+import { api, inr } from '../api'
 import { LANGS } from '../i18n'
-import { api } from '../api'
 import { canRecord, canSpeak, speak, stopSpeaking, useRecorder } from '../hooks'
 import WelcomeCard from './WelcomeCard'
 import QuickEntrySheet from './QuickEntrySheet'
 import Logo from './Logo'
 
 
-// Big, colour-coded picture buttons: recognisable without reading.
+// Big picture buttons: recognisable by icon, no reading needed.
 const QUICK = [
-  { key: 'promise', icon: BriefcaseBusiness, tone: 'bg-sky-50 text-sky-800 ring-sky-200' },
-  { key: 'worked', icon: CalendarCheck, tone: 'bg-amber-50 text-amber-800 ring-amber-200' },
-  { key: 'paid', icon: Banknote, tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
-  { key: 'owed', icon: CircleHelp, sendNow: true, tone: 'bg-rose-50 text-rose-800 ring-rose-200' },
+  { key: 'promise', icon: BriefcaseBusiness },
+  { key: 'worked', icon: CalendarCheck },
+  { key: 'paid', icon: Banknote },
+  { key: 'owed', icon: CircleHelp, sendNow: true },
 ]
 
 export default function ChatPanel({ s, worker, language, messages, sending, onSend, onRetry, onUndo, banner, onDismissBanner, loading, learning, onOpenMemory,
@@ -90,29 +89,29 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
   return (
     <div className="flex h-full flex-col">
       {banner && (
-        <div className="px-4 pt-3">
-          <div role="alert" className="animate-slide-down animate-pulse-ring flex items-center gap-3 rounded-2xl bg-danger px-4 py-3 text-white shadow-soft">
-            <AlertTriangle className="size-6 shrink-0" />
+        <div className="px-4 pt-4 sm:px-6">
+          <div role="alert" className="flex items-center gap-3 rounded-2xl border border-owed/40 bg-owed/10 px-4 py-3 animate-rise">
+            <span className="relative flex size-2.5 shrink-0"><span className="absolute inline-flex size-full rounded-full bg-owed animate-ping-soft" /><span className="relative size-2.5 rounded-full bg-owed" /></span>
             <div className="min-w-0 flex-1">
-              <p className="text-lg font-bold leading-tight">{s.owesYou(banner.employer_name, inr(banner.amount_owed))}</p>
-              <p className="hidden text-sm leading-snug text-white/85 sm:block">{banner.message}</p>
+              <p className="font-semibold text-white">{s.owesYou(banner.employer_name, inr(banner.amount_owed))}</p>
+              <p className="hidden text-[13px] leading-snug text-fg2/80 sm:block">{banner.message}</p>
             </div>
-            <button onClick={onDismissBanner} className="rounded-full p-1 hover:bg-white/15" aria-label="Dismiss">
-              <X className="size-5" />
+            <button onClick={onDismissBanner} className="rounded-full p-1.5 text-muted hover:bg-white/10 hover:text-white" aria-label="Dismiss">
+              <X className="size-4" />
             </button>
           </div>
         </div>
       )}
 
-      <div className="chat-bg flex-1 overflow-y-auto scroll-thin px-4 py-4" lang={language}>
+      <div className="flex-1 overflow-y-auto scroll-thin px-4 py-5 sm:px-6" lang={language}>
         {loading ? (
           <div className="mx-auto max-w-3xl space-y-3">
             {[60, 40, 70].map((w, i) => (
-              <div key={i} className={`h-14 animate-pulse rounded-2xl bg-sand ${i % 2 ? 'ml-auto' : ''}`} style={{ width: `${w}%` }} />
+              <div key={i} className={`h-14 animate-pulse rounded-2xl bg-card ${i % 2 ? 'ml-auto' : ''}`} style={{ width: `${w}%` }} />
             ))}
           </div>
         ) : (
-          <ul className="mx-auto max-w-3xl space-y-4">
+          <ul className="mx-auto max-w-3xl space-y-5">
             {messages.map((m, i) => (
               <Fragment key={m.id ?? `local-${i}`}>
                 {i === welcomeAt && welcomeEl}
@@ -122,11 +121,11 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
             ))}
             {welcomeAt >= messages.length && welcomeEl}
             {sending && (
-              <li className="flex items-center gap-2 text-muted animate-fade-up">
-                <span className="flex gap-1 rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-soft">
-                  <span className="typing-dot size-2 rounded-full bg-brand" />
-                  <span className="typing-dot size-2 rounded-full bg-brand" />
-                  <span className="typing-dot size-2 rounded-full bg-brand" />
+              <li className="flex items-center gap-3 text-muted animate-fade">
+                <span className="flex gap-1 rounded-full border border-line bg-card px-4 py-3">
+                  <span className="typing-dot size-1.5 rounded-full bg-white" />
+                  <span className="typing-dot size-1.5 rounded-full bg-white" />
+                  <span className="typing-dot size-1.5 rounded-full bg-white" />
                 </span>
                 <span className="text-sm">{s.typing}</span>
               </li>
@@ -136,67 +135,64 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
         <div ref={endRef} />
       </div>
 
-      <div className="relative z-10 -mt-3 rounded-t-3xl border-t border-black/5 bg-white px-4 pb-3 pt-3 shadow-[0_-8px_24px_-12px_rgb(30_42_36/0.18)]">
+      <div className="border-t border-line bg-surface px-4 pb-4 pt-3 sm:px-6">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-2 grid grid-cols-4 gap-2" lang={language}>
+          <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto" lang={language}>
             {QUICK.map((q) => {
               const Icon = q.icon
               return (
                 <button key={q.key} onClick={() => quick(q)} disabled={sending || recording}
-                  className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-xs font-bold leading-tight shadow-sm ring-1 transition hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 sm:text-sm ${q.tone}`}>
-                  <Icon className="size-6" /> <span className="line-clamp-2 text-center">{s.quick[q.key]}</span>
+                  className="btn-dark shrink-0 px-4 py-2 text-[14px] disabled:opacity-40">
+                  <Icon className="size-[18px]" /> {s.quick[q.key]}
                 </button>
               )
             })}
           </div>
           {voice.error && (
-            <p className="mb-2 flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger animate-fade-up" role="alert">
+            <p className="mb-3 flex items-start gap-2 rounded-2xl border border-owed/40 bg-owed/10 px-3.5 py-2.5 text-sm text-owed animate-fade" role="alert">
               <CircleAlert className="mt-0.5 size-4 shrink-0" /> <span className="flex-1">{voice.error}</span>
               <button onClick={() => setVoice({ busy: false, error: null })} aria-label={s.close}><X className="size-4" /></button>
             </p>
           )}
           {recording ? (
-            <>
-            <p className="mb-2 flex items-center justify-center gap-2 rounded-xl bg-danger-soft px-3 py-2 text-center font-semibold text-danger animate-fade-up" role="status">
-              <Mic className="size-5 shrink-0" /> {s.recording}
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="flex h-14 min-w-0 flex-1 items-center gap-2.5 rounded-2xl border border-danger/40 bg-danger-soft px-3">
-                <span className="relative flex size-3 shrink-0"><span className="absolute inline-flex size-full animate-ping rounded-full bg-danger opacity-60" /><span className="relative inline-flex size-3 rounded-full bg-danger" /></span>
-                <span className="font-mono font-bold tabular-nums text-danger">0:{String(recorder.seconds).padStart(2, '0')}</span>
-                <Bars />
+            <div role="status">
+              <p className="mb-2 text-center text-sm text-fg2">{s.recording}</p>
+              <div className="flex items-center gap-2">
+                <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-line bg-card px-4">
+                  <span className="size-2.5 shrink-0 rounded-full bg-owed animate-ping-soft" />
+                  <span className="font-display text-lg tabular-nums text-white">0:{String(recorder.seconds).padStart(2, '0')}</span>
+                  <Bars />
+                </div>
+                <button type="button" onClick={() => recorder.cancel()} aria-label={s.cancel} title={s.cancel}
+                  className="grid size-12 shrink-0 place-items-center rounded-full border border-line-strong bg-pill text-fg2 hover:text-white"><X className="size-5" /></button>
+                <button type="button" onClick={finishRecording} className="btn-white h-12 shrink-0 px-5">
+                  <Square className="size-4 fill-current" /> {s.stopRecording}
+                </button>
               </div>
-              <button type="button" onClick={() => recorder.cancel()} aria-label={s.cancel} title={s.cancel}
-                className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white text-muted shadow-soft hover:text-ink"><X className="size-6" /></button>
-              <button type="button" onClick={finishRecording}
-                className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-danger px-4 text-base font-bold text-white shadow-soft animate-pulse-ring active:scale-95">
-                <Square className="size-5 fill-current" /> {s.stopRecording}
-              </button>
             </div>
-            </>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
-              <div className="flex flex-1 items-end rounded-2xl border-2 border-black/10 bg-cream transition focus-within:border-brand focus-within:bg-white">
+              <div className="flex flex-1 items-end rounded-[24px] border border-line bg-card transition focus-within:border-white/40">
                 <textarea
                   ref={inputRef} rows={1} value={text} lang={language} disabled={voice.busy}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
                   placeholder={voice.busy ? s.transcribing : s.placeholder}
-                  className="max-h-36 min-h-[3.25rem] flex-1 resize-none bg-transparent px-4 py-3 text-lg outline-none placeholder:text-muted/70"
+                  className="max-h-36 min-h-12 flex-1 resize-none bg-transparent px-5 py-3 text-[16.5px] text-white outline-none placeholder:text-muted/70"
                   style={{ fieldSizing: 'content' }}
                 />
               </div>
-              {/* Speak is the main action (a labelled button, not an icon); it becomes Send once there is text. */}
+              {/* Speak is the main action (a labelled button); it becomes Send once there is text. */}
               {canRecord && !text.trim() ? (
                 <button type="button" onClick={startRecording} disabled={voice.busy || sending} aria-label={s.mic} title={s.mic}
-                  className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-b from-amber-500 to-saffron px-4 font-display text-lg font-bold text-white shadow-lift transition hover:brightness-105 active:scale-95 disabled:opacity-60">
-                  {voice.busy ? <Loader2 className="size-6 animate-spin" /> : <Mic className="size-6" />}
+                  className="btn-white h-12 shrink-0 px-5">
+                  {voice.busy ? <Loader2 className="size-5 animate-spin" /> : <Mic className="size-5" />}
                   <span className="hidden min-[400px]:inline">{s.speakBtn}</span>
                 </button>
               ) : (
                 <button type="submit" disabled={!text.trim() || sending || voice.busy} aria-label={s.send}
-                  className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-b from-brand to-brand-dark px-4 font-display text-lg font-bold text-white shadow-lift transition active:scale-95 disabled:opacity-40">
-                  <SendHorizontal className="size-6" /> <span className="hidden min-[400px]:inline">{s.send}</span>
+                  className="btn-white h-12 shrink-0 px-5">
+                  <SendHorizontal className="size-5" /> <span className="hidden min-[400px]:inline">{s.send}</span>
                 </button>
               )}
             </form>
@@ -216,12 +212,12 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
 
   if (m.role === 'error') {
     return (
-      <li className="flex animate-fade-up items-start gap-2 rounded-2xl border border-danger/20 bg-danger-soft px-4 py-3 text-danger">
+      <li className="flex items-start gap-2.5 rounded-2xl border border-owed/40 bg-owed/10 px-4 py-3 text-owed animate-rise">
         <CircleAlert className="mt-0.5 size-5 shrink-0" />
         <div className="flex-1">
           <p className="font-medium">{m.content}</p>
           {m.retry && (
-            <button onClick={() => onRetry(m.retry)} className="mt-1 flex items-center gap-1 text-sm font-semibold underline">
+            <button onClick={() => onRetry(m.retry)} className="mt-1.5 flex items-center gap-1 text-sm font-semibold text-white underline underline-offset-2">
               <RefreshCw className="size-3.5" /> {s.retry}
             </button>
           )}
@@ -246,42 +242,44 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
   }
 
   return (
-    <li className={`flex animate-fade-up flex-col ${mine ? 'items-end' : 'items-start'}`}>
-      {/* Entries in a khata, not chat bubbles: HakDaar writes on white paper, the worker in blue ink. */}
-      <article className={`max-w-[92%] px-4 pb-3 pt-2 sm:max-w-[80%] ${mine
-        ? 'rounded-[20px_6px_20px_20px] border-r-4 border-ink-blue bg-[#EEF3FA] text-ink-blue shadow-soft'
-        : 'rounded-[6px_20px_20px_20px] border-l-4 border-brand bg-paper text-ink shadow-soft'}`}>
-        <header className={`mb-0.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${mine ? 'justify-end text-ink-blue/70' : 'text-brand'}`}>
-          {mine ? <><PenLine className="size-3.5" /> {s.you}</> : <><Logo size={18} tone="dark" /> <span className="font-display text-sm normal-case tracking-normal">HakDaar</span></>}
-        </header>
-        <p className="whitespace-pre-wrap text-[1.07rem] leading-relaxed">{m.content}</p>
-      </article>
-
-      {mine && events.length > 0 && (
-        <div className="mt-2 flex max-w-[92%] flex-col items-end gap-1.5">
-          {events.map((e) => <ReceiptStub key={e.id} e={e} s={s} onUndo={onUndo} />)}
+    <li className={`flex flex-col animate-rise ${mine ? 'items-end' : 'items-start'}`}>
+      {/* The worker's messages in white (like the landing CTA), HakDaar's on dark cards. */}
+      {mine ? (
+        <p className="max-w-[88%] whitespace-pre-wrap rounded-[22px] rounded-br-md bg-white px-4 py-2.5 text-[16px] leading-relaxed text-black sm:max-w-[75%]">{m.content}</p>
+      ) : (
+        <div className="max-w-[92%] sm:max-w-[80%]">
+          <p className="mb-1.5 flex items-center gap-2 text-[12px] text-muted">
+            <span className="grid size-5 place-items-center rounded-full bg-white"><Logo size={14} tone="dark" /></span> HakDaar
+          </p>
+          <p className="whitespace-pre-wrap rounded-[22px] rounded-tl-md border border-line bg-card px-4 py-3 text-[16px] leading-relaxed text-fg">{m.content}</p>
         </div>
       )}
 
-      {voiceNote && <p className="mt-1 max-w-[85%] rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn">{voiceNote}</p>}
+      {mine && events.length > 0 && (
+        <div className="mt-2 flex max-w-[92%] flex-wrap justify-end gap-1.5">
+          {events.map((e) => <EntryChip key={e.id} e={e} s={s} onUndo={onUndo} />)}
+        </div>
+      )}
+
+      {voiceNote && <p className="mt-1.5 max-w-[85%] rounded-xl border border-warn/30 bg-warn/10 px-3 py-1.5 text-xs text-warn">{voiceNote}</p>}
       {m.warnings?.map((w) => (
-        <p key={w} className="mt-1 flex items-center gap-1 text-xs text-warn"><AlertTriangle className="size-3.5" /> {w}</p>
+        <p key={w} className="mt-1.5 flex items-center gap-1.5 text-xs text-warn"><AlertTriangle className="size-3.5" /> {w}</p>
       ))}
 
-      <div className={`mt-1 flex items-center gap-2 px-1 text-xs text-muted ${mine ? 'flex-row-reverse' : ''}`}>
+      <div className={`mt-1.5 flex items-center gap-3 px-1 text-[12px] text-muted ${mine ? 'flex-row-reverse' : ''}`}>
         {m.created_at && (
-          <span>{new Date(m.created_at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+          <span className="tabular-nums">{new Date(m.created_at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
         )}
         {!mine && canSpeak && (
-          <button onClick={listen} className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold transition ${speaking ? 'bg-brand text-white' : 'text-brand hover:bg-brand-soft'}`}>
+          <button onClick={listen} className={`flex items-center gap-1 font-medium transition ${speaking ? 'text-white' : 'hover:text-white'}`}>
             {speaking ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />} {speaking ? s.stopReading : s.listen}
           </button>
         )}
         {showLearning === 'pending' && (
-          <span className="flex items-center gap-1 text-brand"><Loader2 className="size-3.5 animate-spin" /> {s.learning}</span>
+          <span className="flex items-center gap-1"><Loader2 className="size-3.5 animate-spin" /> {s.learning}</span>
         )}
         {typeof showLearning === 'number' && showLearning > 0 && (
-          <button onClick={onOpenMemory} className="flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 font-semibold text-brand transition animate-fade-up hover:bg-brand hover:text-white">
+          <button onClick={onOpenMemory} className="flex items-center gap-1 font-medium text-fg2 transition animate-fade hover:text-white">
             <Sparkles className="size-3.5" /> {s.learnedNew(showLearning)}
           </button>
         )}
@@ -290,17 +288,12 @@ function Bubble({ m, s, onRetry, onUndo, speechTag, language, showLearning, onOp
   )
 }
 
-const STUB = {
-  promise: { icon: BriefcaseBusiness, tint: 'bg-sky-100 text-sky-700' },
-  work_day: { icon: CalendarCheck, tint: 'bg-amber-100 text-amber-700' },
-  payment: { icon: Banknote, tint: 'bg-emerald-100 text-emerald-700' },
-}
+const ENTRY_ICONS = { promise: BriefcaseBusiness, work_day: CalendarCheck, payment: Banknote }
 
-/** Every recorded fact becomes a torn-off receipt with a "NOTED" rubber stamp (and an undo). */
-function ReceiptStub({ e, s, onUndo }) {
+/** What HakDaar recorded from the message, as a small pill with an undo. */
+function EntryChip({ e, s, onUndo }) {
   const [busy, setBusy] = useState(false)
-  const conf = STUB[e.type]
-  const Icon = conf.icon
+  const Icon = ENTRY_ICONS[e.type]
   let label, value
   if (e.type === 'promise' && e.basis === 'fixed') { label = s.entryFixed; value = inr(e.amount) }
   else if (e.type === 'promise') { label = s.entryPromise; value = `${inr(e.amount)}${s.perDay}` }
@@ -308,23 +301,22 @@ function ReceiptStub({ e, s, onUndo }) {
   else { label = s.entryPay; value = inr(e.amount) }
 
   return (
-    <div className={`stub flex items-center gap-3 py-2 pl-5 pr-3 ${e.undone ? 'opacity-50 grayscale' : ''}`}>
-      <span className={`grid size-9 shrink-0 place-items-center rounded-full ${conf.tint}`}><Icon className="size-5" /></span>
-      <span className="min-w-0 border-l border-dashed border-black/15 pl-3">
-        <span className="block text-[11px] font-bold uppercase tracking-wide text-muted">{label} · {e.employer_name}</span>
-        <span className={`font-display text-xl font-bold leading-tight tabular-nums text-ink ${e.undone ? 'line-through' : ''}`}>{value}</span>
-      </span>
-      <span className={`stamp animate-stamp ml-1 shrink-0 px-1.5 py-0.5 text-[11px] font-extrabold ${e.undone ? 'text-muted' : 'text-brand'}`}>
-        {e.undone ? s.undone : `✓ ${s.noted}`}
-      </span>
-      {!e.undone && (
-        <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy}
-          title={s.undo} aria-label={`${s.undo}: ${label} ${value}`}
-          className="grid size-8 shrink-0 place-items-center rounded-full text-muted transition hover:bg-danger-soft hover:text-danger">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Undo2 className="size-4" />}
-        </button>
+    <span className={`inline-flex items-center gap-2 rounded-full border border-line-strong bg-pill py-1 pl-3 pr-1 text-[13px] text-fg2 ${e.undone ? 'opacity-40' : ''}`}>
+      <Icon className="size-3.5 shrink-0 text-muted" />
+      <span className={e.undone ? 'line-through' : ''}>{label} · {e.employer_name} · <span className="font-semibold tabular-nums text-white">{value}</span></span>
+      {e.undone ? (
+        <span className="pr-2 text-muted">{s.undone}</span>
+      ) : (
+        <>
+          <span className="flex items-center gap-1 text-ok"><Check className="size-3.5" /> {s.noted}</span>
+          <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy}
+            title={s.undo} aria-label={`${s.undo}: ${label} ${value}`}
+            className="grid size-7 shrink-0 place-items-center rounded-full text-muted transition hover:bg-white/10 hover:text-white">
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
+          </button>
+        </>
       )}
-    </div>
+    </span>
   )
 }
 
@@ -333,7 +325,7 @@ function Bars() {
   return (
     <span className="flex h-5 items-end gap-0.5" aria-hidden>
       {[0, 1, 2, 3, 4].map((i) => (
-        <span key={i} className="w-1 rounded-full bg-danger/70 eq-bar" style={{ animationDelay: `${i * 0.12}s` }} />
+        <span key={i} className="w-[3px] rounded-full bg-white/70 eq-bar" style={{ animationDelay: `${i * 0.12}s` }} />
       ))}
     </span>
   )

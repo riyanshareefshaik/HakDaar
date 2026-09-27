@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
-  AlertTriangle, BadgeCheck, Banknote, Brain, BriefcaseBusiness, Building2, CalendarCheck, ChevronDown, CircleAlert, CircleHelp, Gift,
-  Loader2, MessageSquareQuote, Sparkles, Undo2, Users, Wallet,
+  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, ChevronDown, CircleAlert, Gift, Loader2,
+  MessageSquareQuote, Undo2,
 } from 'lucide-react'
 import { api, inr } from '../api'
 import { useCountUp } from '../hooks'
@@ -9,48 +9,28 @@ import { useCountUp } from '../hooks'
 /** Right column: the wage ledger (the numbers) and how they are calculated. */
 export default function LedgerPanel({ s, ledger, loading, onUndo }) {
   return (
-    <div className="h-full space-y-4 overflow-y-auto scroll-thin p-4">
+    <div className="h-full overflow-y-auto scroll-thin p-5 sm:p-6">
       <LedgerCard s={s} ledger={ledger} loading={loading} onUndo={onUndo} />
       <HowCalculated s={s} />
     </div>
   )
 }
 
-function HowCalculated({ s }) {
-  const [open, setOpen] = useState(false)
+function SectionTitle({ children, right }) {
   return (
-    <section className="card overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 p-4 text-left font-semibold">
-        <CircleHelp className="size-5 text-brand" />
-        <span className="flex-1">{s.howCalc}</span>
-        <ChevronDown className={`size-4 text-muted transition ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="space-y-2 px-4 pb-4 animate-fade-up">
-          {s.howCalcLines.map(([k, v], i) => (
-            <p key={k} className={`rounded-xl p-2.5 text-sm ${i === 2 ? 'bg-danger-soft' : 'bg-sand/70'}`}>
-              <b className={i === 2 ? 'text-danger' : ''}>{k}</b> = {v}
-            </p>
-          ))}
-          <p className="flex items-center gap-1.5 text-xs text-muted"><BadgeCheck className="size-3.5 text-brand" /> {s.exactNote}</p>
-        </div>
-      )}
-    </section>
-  )
-}
-
-function CardTitle({ icon: Icon, children, right }) {
-  return (
-    <div className="mb-3 flex items-center gap-2">
-      <span className="grid size-8 place-items-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4.5" /></span>
-      <h3 className="flex-1 font-display text-lg font-bold">{children}</h3>
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="font-display text-2xl leading-none text-white">{children}</h2>
       {right}
     </div>
   )
 }
 
 function Skeleton({ rows = 2 }) {
-  return <div className="space-y-2">{Array.from({ length: rows }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-sand" />)}</div>
+  return <div className="space-y-2">{Array.from({ length: rows }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-card" />)}</div>
+}
+
+function Empty({ children }) {
+  return <p className="rounded-2xl border border-dashed border-line px-4 py-5 text-center text-sm text-muted">{children}</p>
 }
 
 // ---------------------------------------------------------------- ledger
@@ -58,10 +38,10 @@ function Skeleton({ rows = 2 }) {
 export function LedgerCard({ s, ledger, loading, onUndo }) {
   const employers = ledger?.employers || []
   return (
-    <section className="card p-4">
-      <CardTitle icon={Wallet}>{s.ledger}</CardTitle>
+    <section>
+      <SectionTitle>{s.ledger}</SectionTitle>
       {loading ? <Skeleton /> : employers.length === 0 ? (
-        <p className="rounded-xl bg-sand/70 p-3 text-sm text-muted">{s.noLedger}</p>
+        <Empty>{s.noLedger}</Empty>
       ) : (
         <div className="space-y-3">
           {employers.map((r) => <EmployerRow key={r.employer_name} r={r} s={s} onUndo={onUndo} />)}
@@ -77,68 +57,58 @@ function EmployerRow({ r, s, onUndo }) {
   const unknown = r.status === 'unknown_rate'
   const isOwed = (r.amount_owed ?? 0) > 0
   const pct = r.amount_earned ? Math.min(100, Math.round((r.amount_paid / r.amount_earned) * 100)) : 0
+  const workings = [
+    r.rate_per_day != null && r.days_worked ? `${r.days_worked} × ${inr(r.rate_per_day)}` : null,
+    r.fixed_amount ? inr(r.fixed_amount) : null,
+  ].filter(Boolean).join(' + ')
 
   return (
-    <div className={`chat-bg rounded-2xl border-l-4 p-3 pl-4 shadow-soft transition ${isOwed ? 'border-danger' : 'border-brand'}`}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 font-display text-lg font-bold"><Building2 className="size-4 shrink-0 text-muted" /> <span className="truncate">{r.employer_name}</span></p>
+    <article className="card p-4">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-white">{r.employer_name}</p>
+          <p className="eyebrow mt-0.5">{unknown ? s.rateUnknown : isOwed ? s.owed : r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</p>
+        </div>
         {!unknown && (
-          isOwed ? (
-            <span key={r.amount_owed} className="stamp animate-stamp mr-1 mt-1 bg-white/60 px-2.5 py-1 text-right text-danger">
-              <span className="block text-[11px] font-extrabold">{s.owed}</span>
-              <span className="block text-3xl font-extrabold leading-none tabular-nums">{inr(owed)}</span>
-            </span>
-          ) : (
-            <span className="stamp animate-stamp mr-1 mt-1 bg-white/60 px-2.5 py-1 text-right text-brand">
-              <span className="block text-[11px] font-extrabold">{r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</span>
-              <span className="block text-3xl font-extrabold leading-none">₹0</span>
-            </span>
-          )
+          <span className={`font-display text-[32px] leading-none tabular-nums ${isOwed ? 'text-owed' : 'text-ok'}`}>{inr(isOwed ? owed : 0)}</span>
         )}
-      </div>
+      </header>
 
-      <dl className={`mt-2 grid gap-2 text-sm ${r.fixed_amount ? 'grid-cols-4' : 'grid-cols-3'}`}>
+      <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-3">
         <Stat label={s.promised} value={r.rate_per_day == null ? '—' : `${inr(r.rate_per_day)}${s.perDay}`} />
         <Stat label={s.days} value={r.days_worked} />
-        {r.fixed_amount > 0 && <Stat label={s.fixed} value={inr(r.fixed_amount)} />}
         <Stat label={s.paid} value={inr(r.amount_paid)} />
+        {r.fixed_amount > 0 && <Stat label={s.fixed} value={inr(r.fixed_amount)} />}
       </dl>
 
       {unknown ? (
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-warn"><CircleAlert className="size-4" /> {s.rateUnknown}</p>
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-warn"><CircleAlert className="size-4" /> {s.rateUnknown}</p>
       ) : (
-        <div className="mt-3">
-          <div className="flex items-center gap-3">
-            <Ring pct={pct} warn={isOwed} />
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white">
-              <div className={`h-full rounded-full transition-all duration-700 ${isOwed ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${pct}%` }} />
-            </div>
+        <div className="mt-4">
+          <div className="h-1 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${pct}%` }} />
           </div>
-          <p className="mt-1 flex justify-between text-xs text-muted">
-            <span>{s.paid} {inr(r.amount_paid)}</span>
-            <span>{s.earned} {inr(r.amount_earned)} <span className="opacity-70">({[
-              r.rate_per_day != null && r.days_worked ? `${r.days_worked} × ${inr(r.rate_per_day)}` : null,
-              r.fixed_amount ? inr(r.fixed_amount) : null,
-            ].filter(Boolean).join(' + ') || '0'})</span></span>
+          <p className="mt-1.5 flex justify-between gap-2 text-[12px] text-muted">
+            <span>{s.paid} {inr(r.amount_paid)} · {pct}%</span>
+            <span className="text-right">{s.earned} {inr(r.amount_earned)}{workings && <span className="opacity-70"> ({workings})</span>}</span>
           </p>
         </div>
       )}
 
       {r.entries?.length > 0 && (
         <>
-          <button onClick={() => setOpen(!open)}
-            className="mt-2 flex items-center gap-1 text-sm font-semibold text-brand hover:underline">
+          <button onClick={() => setOpen(!open)} className="btn-ghost -ml-3 mt-2">
             <ChevronDown className={`size-4 transition ${open ? 'rotate-180' : ''}`} />
             {open ? s.hideEntries : `${s.showEntries} (${r.entries.length})`}
           </button>
           {open && (
-            <ol className="mt-2 space-y-1.5 border-l-2 border-brand/20 pl-3 animate-fade-up">
+            <ol className="mt-1 divide-y divide-line rounded-xl border border-line animate-fade">
               {r.entries.map((e) => <EntryRow key={e.id} e={e} s={s} onUndo={onUndo} />)}
             </ol>
           )}
         </>
       )}
-    </div>
+    </article>
   )
 }
 
@@ -154,12 +124,12 @@ function EntryRow({ e, s, onUndo }) {
   const Icon = conf.icon
   const date = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''
   return (
-    <li className="group flex items-center gap-2 text-sm">
+    <li className="group flex items-center gap-3 px-3 py-2 text-sm">
       <Icon className="size-4 shrink-0 text-muted" />
-      <span className="flex-1">{conf.label} <b>{conf.value}</b></span>
-      <span className="text-xs text-muted">{date}</span>
+      <span className="flex-1 text-fg2">{conf.label} <span className="font-semibold tabular-nums text-white">{conf.value}</span></span>
+      <span className="text-[12px] tabular-nums text-muted">{date}</span>
       <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy} title={s.undo} aria-label={s.undo}
-        className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white hover:text-danger lg:opacity-0 lg:group-hover:opacity-100">
+        className="grid size-7 place-items-center rounded-full text-muted transition hover:bg-white/10 hover:text-white lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100">
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
       </button>
     </li>
@@ -168,10 +138,33 @@ function EntryRow({ e, s, onUndo }) {
 
 function Stat({ label, value }) {
   return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="font-semibold tabular-nums">{value}</dd>
+    <div className="min-w-0">
+      <dt className="text-[11px] text-muted">{label}</dt>
+      <dd className="truncate font-semibold tabular-nums text-white">{value}</dd>
     </div>
+  )
+}
+
+function HowCalculated({ s }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="mt-6 border-t border-line pt-4">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 text-left text-[15px] font-medium text-fg2 hover:text-white">
+        {s.howCalc}
+        <ChevronDown className={`size-4 text-muted transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <dl className="mt-3 space-y-3 text-sm animate-fade">
+          {s.howCalcLines.map(([k, v], i) => (
+            <div key={k}>
+              <dt className={`font-semibold ${i === 2 ? 'text-owed' : 'text-white'}`}>{k}</dt>
+              <dd className="text-fg2/80">{v}</dd>
+            </div>
+          ))}
+          <p className="text-[12px] text-muted">{s.exactNote}</p>
+        </dl>
+      )}
+    </section>
   )
 }
 
@@ -181,49 +174,43 @@ export function MemoriesCard({ s, recalled, learned, newIds, error, loading, lea
   const [view, setView] = useState('learned')
   const items = view === 'recalled' ? recalled : learned.items
   return (
-    <section className="card p-4">
-      <CardTitle icon={Brain}
-        right={learning === 'pending'
-          ? <span className="flex items-center gap-1 text-xs font-semibold text-brand"><Loader2 className="size-3.5 animate-spin" /> Hindsight</span>
-          : <span className="rounded-full bg-sand px-2 py-0.5 text-[11px] font-semibold text-muted">Hindsight</span>}>
-        {s.memories}
-      </CardTitle>
-
-      <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-sand p-1 text-sm">
-        {[['learned', `${s.allLearned} (${learned.total})`], ['recalled', s.usedLastReply]].map(([k, label]) => (
+    <section>
+      <div className="mb-3 grid grid-cols-2 rounded-full bg-white p-1">
+        {[['learned', `${s.allLearned} · ${learned.total}`], ['recalled', s.usedLastReply]].map(([k, label]) => (
           <button key={k} onClick={() => setView(k)}
-            className={`rounded-lg px-2 py-1.5 font-semibold transition ${view === k ? 'bg-white text-brand shadow-soft' : 'text-muted hover:text-ink'}`}>
+            className={`rounded-full px-2 py-1.5 text-[13.5px] font-medium transition ${view === k ? 'bg-black text-white' : 'text-[#2e2e2e] opacity-60 hover:opacity-90'}`}>
             {label}
           </button>
         ))}
       </div>
-      <p className="mb-3 text-xs text-muted">{view === 'recalled' ? s.usedHint : s.learnedHint}</p>
+      <p className="mb-4 flex items-center gap-2 text-[13px] text-muted">
+        {learning === 'pending' && <Loader2 className="size-3.5 animate-spin" />}
+        {view === 'recalled' ? s.usedHint : s.learnedHint}
+      </p>
 
       {typeof learning === 'number' && learning > 0 && view === 'learned' && (
-        <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-brand-soft px-2.5 py-1.5 text-sm font-semibold text-brand animate-slide-down">
-          <Sparkles className="size-4" /> {s.learnedNew(learning)}
-        </p>
+        <p className="mb-3 text-sm text-white animate-fade">{s.learnedNew(learning)}</p>
       )}
 
       {loading ? <Skeleton rows={1} /> : error ? (
-        <p className="flex items-start gap-2 rounded-xl bg-warn-soft p-3 text-sm text-warn"><CircleAlert className="mt-0.5 size-4 shrink-0" /> {error}</p>
+        <p className="flex items-start gap-2 rounded-2xl border border-warn/30 bg-warn/10 p-3 text-sm text-warn"><CircleAlert className="mt-0.5 size-4 shrink-0" /> {error}</p>
       ) : items.length === 0 ? (
-        <p className="rounded-xl bg-sand/70 p-3 text-sm text-muted">{view === 'recalled' ? s.noRecall : s.noMemories}</p>
+        <Empty>{view === 'recalled' ? s.noRecall : s.noMemories}</Empty>
       ) : (
-        <ul className="max-h-[22rem] space-y-1.5 overflow-y-auto scroll-thin pr-1">
+        <ul className="space-y-2">
           {items.map((m, i) => {
             const community = m.bank === 'employer-reputation'
             const fresh = newIds.has(m.id)
             return (
               <li key={`${m.bank}-${m.id ?? i}`} title={m.text}
-                className={`animate-fade-up rounded-xl border px-3 py-2 text-sm leading-snug transition ${fresh ? 'border-brand bg-brand-soft ring-2 ring-brand/20' : community ? 'border-warn/25 bg-warn-soft' : 'border-black/5 bg-sand/50'}`}
-                style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}>
-                <span className="mb-0.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide">
-                  <span className={community ? 'text-warn' : 'text-brand'}>{community ? s.community : s.personal}</span>
-                  {fresh && <span className="rounded bg-brand px-1 text-white">new</span>}
-                  {m.date && <span className="font-medium normal-case text-muted">{new Date(m.date).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>}
+                className={`rounded-2xl border px-3.5 py-2.5 text-sm leading-snug animate-rise ${fresh ? 'border-white/50 bg-raised' : 'border-line bg-card'}`}
+                style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                <span className="mb-1 flex items-center gap-2 text-[11px] text-muted">
+                  <span className={community ? 'text-warn' : 'text-fg2'}>{community ? s.community : s.personal}</span>
+                  {m.date && <span className="tabular-nums">{new Date(m.date).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>}
+                  {fresh && <span className="rounded-full bg-white px-1.5 text-[10px] font-semibold text-black">new</span>}
                 </span>
-                {m.text.length > 180 ? m.text.slice(0, 180) + '…' : m.text}
+                <span className="text-fg2">{m.text.length > 180 ? m.text.slice(0, 180) + '…' : m.text}</span>
               </li>
             )
           })}
@@ -238,12 +225,11 @@ export function MemoriesCard({ s, recalled, learned, newIds, error, loading, lea
 export function AlertsCard({ s, alerts, loading }) {
   const rep = alerts.filter((a) => a.type === 'employer_reputation')
   return (
-    <section className="card p-4">
-      <CardTitle icon={Users}>{s.alerts}</CardTitle>
+    <section>
       {loading ? <Skeleton rows={1} /> : rep.length === 0 ? (
-        <p className="flex items-center gap-2 text-sm text-brand"><BadgeCheck className="size-4" /> {s.noAlerts}</p>
+        <Empty>{s.noAlerts}</Empty>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {rep.map((a) => <ReputationAlert key={a.employer_name} a={a} s={s} />)}
         </ul>
       )}
@@ -263,37 +249,19 @@ function ReputationAlert({ a, s }) {
     }
   }
   return (
-    <li className="rounded-xl border border-warn/30 bg-warn-soft p-3 animate-fade-up">
-      <p className="flex items-start gap-2 font-semibold">
-        <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warn" /> <span>{a.message}</span>
+    <li className="card p-4 animate-rise">
+      <p className="flex items-start gap-2.5 text-white">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" /> <span>{a.message}</span>
       </p>
       {!state.summary && (
-        <button onClick={ask} disabled={state.loading}
-          className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-warn hover:underline disabled:opacity-60">
+        <button onClick={ask} disabled={state.loading} className="btn-dark mt-3 px-4 py-2 text-sm">
           {state.loading ? <Loader2 className="size-4 animate-spin" /> : <MessageSquareQuote className="size-4" />} {s.askReputation}
         </button>
       )}
       {state.summary && (
-        <p className="mt-2 rounded-lg bg-white/70 p-2 text-sm leading-relaxed animate-fade-up">
-          <span className="mr-1 text-[10px] font-bold uppercase text-warn">Hindsight reflect</span>{state.summary}
-        </p>
+        <p className="mt-3 border-l-2 border-white/30 pl-3 text-sm leading-relaxed text-fg2 animate-fade">{state.summary}</p>
       )}
-      {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
+      {state.error && <p className="mt-2 text-sm text-owed">{state.error}</p>}
     </li>
-  )
-}
-
-/** Paid-vs-earned ring: a quick visual answer to "how much of my money did I get?" */
-function Ring({ pct, warn }) {
-  const r = 18
-  const c = 2 * Math.PI * r
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0" aria-label={`${pct}% paid`}>
-      <circle cx="24" cy="24" r={r} fill="none" stroke="#fff" strokeWidth="6" />
-      <circle cx="24" cy="24" r={r} fill="none" stroke={warn ? '#D97706' : '#1F6F4A'} strokeWidth="6" strokeLinecap="round"
-        strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 24 24)"
-        style={{ transition: 'stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)' }} />
-      <text x="24" y="28" textAnchor="middle" fontSize={pct >= 100 ? 9.5 : 11} fontWeight="800" fill={warn ? '#B45309' : '#1F6F4A'}>{pct}%</text>
-    </svg>
   )
 }

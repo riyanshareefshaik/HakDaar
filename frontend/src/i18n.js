@@ -216,7 +216,7 @@ const EXTRA = {
 // Welcome-back, nudges, story, quick entry, read-aloud.
 const EXTRA2 = {
   en: {
-    welcomeNew: (n) => `Hello ${n}! 🙏 Tell me who you work for, what they promised, how many days you worked and what you were paid. I will remember everything.`,
+    welcomeNew: (n) => `Hello ${n}. Tell me who you work for, what they promised, how many days you worked and what you were paid. I will remember everything.`,
     welcomeBack: (n) => `Welcome back, ${n}!`,
     nudgeOwed: (e, a) => `${e} still owes you ${a}`,
     nudgeDays: (d) => (d === 1 ? '1 day since the last update' : `${d} days since the last update`),
@@ -225,7 +225,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `How much did ${e} promise per day?`,
     yesPaid: 'Yes, paid', notYet: 'Not yet', tellRate: 'Tell the rate',
     replyYesPaid: (e) => `${e} paid me the full amount`,
-    celebrate: 'All paid! 🎉', reminders: 'Reminders', you: 'You', day1: 'Day', speakBtn: 'Speak', connections: 'Connections', memoryService: 'Hindsight memory', aiService: 'Groq AI', online: 'Online', offline: 'Offline', recheck: 'Check again',
+    celebrate: 'All paid. Nothing is owed now.', alertsShort: 'Alerts', reminders: 'Reminders', you: 'You', day1: 'Day', speakBtn: 'Speak', connections: 'Connections', memoryService: 'Hindsight memory', aiService: 'Groq AI', online: 'Online', offline: 'Offline', recheck: 'Check again',
     replyNotYet: (e) => `${e} has not paid me yet`,
     help: 'How it works',
     next: 'Next', back: 'Back', startNow: 'Start', skip: 'Skip',
@@ -238,7 +238,7 @@ const EXTRA2 = {
     qePromiseTotal: (e, a) => `${e} promised me ₹${a} in total for this work`,
   },
   te: {
-    welcomeNew: (n) => `నమస్తే ${n}! 🙏 మీరు ఎవరి దగ్గర పని చేస్తున్నారు, ఎంత ఇస్తామన్నారు, ఎన్ని రోజులు పని చేశారు, ఎంత ఇచ్చారు — చెప్పండి. నేను అన్నీ గుర్తుపెట్టుకుంటాను.`,
+    welcomeNew: (n) => `నమస్తే ${n}. మీరు ఎవరి దగ్గర పని చేస్తున్నారు, ఎంత ఇస్తామన్నారు, ఎన్ని రోజులు పని చేశారు, ఎంత ఇచ్చారు — చెప్పండి. నేను అన్నీ గుర్తుపెట్టుకుంటాను.`,
     welcomeBack: (n) => `మళ్ళీ స్వాగతం, ${n}!`,
     nudgeOwed: (e, a) => `${e} ఇంకా మీకు ${a} ఇవ్వాలి`,
     nudgeDays: (d) => `చివరి సమాచారం నుండి ${d} రోజులు అయింది`,
@@ -247,7 +247,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `${e} రోజుకు ఎంత ఇస్తామన్నారు?`,
     yesPaid: 'ఇచ్చారు', notYet: 'ఇంకా లేదు', tellRate: 'కూలి చెప్పండి',
     replyYesPaid: (e) => `${e} మొత్తం డబ్బులు ఇచ్చేశారు`,
-    celebrate: 'మొత్తం అందింది! 🎉', reminders: 'గుర్తుచేయడం', you: 'మీరు', day1: 'రోజు', speakBtn: 'మాట్లాడండి', connections: 'కనెక్షన్లు', memoryService: 'Hindsight జ్ఞాపకం', aiService: 'Groq AI', online: 'పనిచేస్తోంది', offline: 'ఆగిపోయింది', recheck: 'మళ్ళీ చూడండి',
+    celebrate: 'మొత్తం అందింది. ఇక బాకీ లేదు.', alertsShort: 'హెచ్చరికలు', reminders: 'గుర్తుచేయడం', you: 'మీరు', day1: 'రోజు', speakBtn: 'మాట్లాడండి', connections: 'కనెక్షన్లు', memoryService: 'Hindsight జ్ఞాపకం', aiService: 'Groq AI', online: 'పనిచేస్తోంది', offline: 'ఆగిపోయింది', recheck: 'మళ్ళీ చూడండి',
     replyNotYet: (e) => `${e} ఇంకా డబ్బులు ఇవ్వలేదు`,
     help: 'ఎలా పనిచేస్తుంది',
     next: 'తర్వాత', back: 'వెనక్కి', startNow: 'మొదలుపెట్టండి', skip: 'దాటవేయి',
@@ -260,7 +260,7 @@ const EXTRA2 = {
     qePromiseTotal: (e, a) => `${e} ఈ పనికి మొత్తం ₹${a} ఇస్తామన్నారు`,
   },
   hi: {
-    welcomeNew: (n) => `नमस्ते ${n}! 🙏 बताइए आप किसके लिए काम करते हैं, कितने का वादा हुआ, कितने दिन काम किया और कितना मिला। मैं सब याद रखूँगा।`,
+    welcomeNew: (n) => `नमस्ते ${n}. बताइए आप किसके लिए काम करते हैं, कितने का वादा हुआ, कितने दिन काम किया और कितना मिला। मैं सब याद रखूँगा।`,
     welcomeBack: (n) => `फिर से स्वागत है, ${n}!`,
     nudgeOwed: (e, a) => `${e} पर अभी भी आपके ${a} बाकी हैं`,
     nudgeDays: (d) => `पिछली बात को ${d} दिन हो गए`,
@@ -269,7 +269,7 @@ const EXTRA2 = {
     nudgeRate: (e) => `${e} ने रोज़ कितना देने का वादा किया?`,
     yesPaid: 'हाँ, मिले', notYet: 'अभी नहीं', tellRate: 'दर बताएँ',
     replyYesPaid: (e) => `${e} ने पूरे पैसे दे दिए`,
-    celebrate: 'पूरा पैसा मिल गया! 🎉', reminders: 'याद दिलाना', you: 'आप', day1: 'दिन', speakBtn: 'बोलें', connections: 'कनेक्शन', memoryService: 'Hindsight याददाश्त', aiService: 'Groq AI', online: 'चालू', offline: 'बंद', recheck: 'फिर जाँचें',
+    celebrate: 'पूरा पैसा मिल गया। अब कुछ बाकी नहीं।', alertsShort: 'चेतावनी', reminders: 'याद दिलाना', you: 'आप', day1: 'दिन', speakBtn: 'बोलें', connections: 'कनेक्शन', memoryService: 'Hindsight याददाश्त', aiService: 'Groq AI', online: 'चालू', offline: 'बंद', recheck: 'फिर जाँचें',
     replyNotYet: (e) => `${e} ने अभी तक पैसे नहीं दिए`,
     help: 'यह कैसे काम करता है',
     next: 'आगे', back: 'पीछे', startNow: 'शुरू करें', skip: 'छोड़ें',

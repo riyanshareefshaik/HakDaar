@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BellRing, CircleAlert, CircleCheck, CirclePlay, HandCoins, Info, Loader2, MessagesSquare, RefreshCw, TriangleAlert, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
+import { BellRing, CircleAlert, CircleHelp, Loader2, MessagesSquare, RefreshCw, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
 import { ApiError, api, inr } from './api'
 import { t } from './i18n'
 import { useCountUp } from './hooks'
-import Header, { Avatar } from './components/Header'
+import Header from './components/Header'
 import ChatPanel from './components/ChatPanel'
 import LedgerPanel from './components/LedgerPanel'
 import Login from './components/Login'
 import AccountDrawer from './components/AccountDrawer'
 import HowItWorks from './components/HowItWorks'
 import LegalModal from './components/LegalModal'
-import Celebrate from './components/Celebrate'
 
 const LEDGER_TYPES = new Set(['promise', 'work_day', 'payment'])
 // Hindsight extracts facts in the background after retain; re-check a few times to show learning live.
 const LEARN_POLL_MS = [2500, 6000, 12000, 25000, 45000]
 const EMPTY_LEARNED = { total: 0, items: [] }
 const SESSION_KEY = 'hakdaar.session'
+// Same background video as the landing page.
+const BG_VIDEO = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260809_012548_ef22562c-c0ae-4816-ad9d-f8922af4e6a7.mp4'
 
 function readStored(key) {
   try { return localStorage.getItem(key) } catch { return null }
@@ -51,7 +52,6 @@ export default function App() {
   const [welcomeLoading, setWelcomeLoading] = useState(false)
   const [welcomeAt, setWelcomeAt] = useState(0) // the welcome card sits after the history loaded at login
   const [welcomeOpen, setWelcomeOpen] = useState(true)
-  const [celebrating, setCelebrating] = useState(false)
   const owedByEmployer = useRef(null)
   // Links from the landing page: /app?mode=register, /app?guide=1, /app?doc=terms|privacy
   const [entry] = useState(() => {
@@ -271,75 +271,85 @@ export default function App() {
 
   const openDrawer = (section) => setDrawer({ open: true, section })
 
-  // 🎉 when an employer that owed money has now paid everything.
+  // A quiet confirmation when an employer that owed money has now paid everything.
   useEffect(() => {
     if (!ledger?.employers) return
     const now = Object.fromEntries(ledger.employers.map((r) => [r.employer_name, r.amount_owed ?? 0]))
     const before = owedByEmployer.current
     owedByEmployer.current = now
-    if (before && Object.entries(now).some(([e, owed]) => owed === 0 && (before[e] ?? 0) > 0)) {
-      setCelebrating(true)
-      setTimeout(() => setCelebrating(false), 3800)
-    }
-  }, [ledger])
+    if (before && Object.entries(now).some(([e, owed]) => owed === 0 && (before[e] ?? 0) > 0)) showToast(s.celebrate)
+  }, [ledger]) // eslint-disable-line react-hooks/exhaustive-deps
   const totals = ledger?.totals || { amount_earned: 0, amount_paid: 0, amount_owed: 0 }
   const repAlerts = alerts.filter((a) => a.type === 'employer_reputation').length
 
   // ---------- screens ----------
   if (backendError) {
     return (
-      <div className="flex h-dvh flex-col">
-        <Header s={s} />
-        <div className="grid flex-1 place-items-center p-6">
-          <div className="card max-w-md p-6 text-center">
-            <WifiOff className="mx-auto mb-3 size-10 text-danger" />
-            <p className="text-lg font-bold">{s.backendDown}</p>
-            <p className="mt-1 text-muted">{backendError}</p>
-            <code className="mt-3 block rounded-lg bg-sand p-2 text-left text-sm">./scripts/start-backend.sh</code>
-            <button onClick={boot} className="mx-auto mt-4 flex items-center gap-2 rounded-xl bg-brand px-4 py-2 font-semibold text-white">
-              <RefreshCw className="size-4" /> {s.retry}
-            </button>
-          </div>
+      <div className="grid h-dvh place-items-center bg-bg p-6">
+        <div className="panel max-w-md p-8 text-center animate-rise">
+          <WifiOff className="mx-auto mb-4 size-8 text-owed" />
+          <p className="font-display text-2xl text-white">{s.backendDown}</p>
+          <p className="mt-2 text-fg2/80">{backendError}</p>
+          <code className="mt-4 block rounded-xl border border-line bg-card p-3 text-left text-sm text-fg2">./scripts/start-backend.sh</code>
+          <button onClick={boot} className="btn-white mt-5"><RefreshCw className="size-4" /> {s.retry}</button>
         </div>
       </div>
     )
   }
 
   if (!booted) {
-    return <div className="grid h-dvh place-items-center"><Loader2 className="size-8 animate-spin text-brand" /></div>
+    return <div className="grid h-dvh place-items-center bg-bg"><Loader2 className="size-7 animate-spin text-white/60" /></div>
   }
 
   const degraded = health && (!health.hindsight.ok || !health.groq.ok) && (
-    <div className="flex items-center gap-2 bg-warn-soft px-4 py-2 text-sm text-warn">
+    <div className="mx-auto mt-3 flex w-[calc(100%-1.5rem)] max-w-[1400px] items-center gap-2 rounded-full border border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn sm:w-[calc(100%-3rem)]">
       <CircleAlert className="size-4 shrink-0" />
       <span className="flex-1">{!health.groq.ok ? s.aiOffline : s.memoryOffline}</span>
-      <button onClick={boot} className="font-semibold underline">{s.retry}</button>
+      <button onClick={boot} className="font-semibold underline underline-offset-2">{s.retry}</button>
+    </div>
+  )
+
+  const toastEl = toast && (
+    <div role="status" className={`fixed inset-x-4 bottom-24 z-50 mx-auto w-fit max-w-md rounded-full px-5 py-2.5 text-sm font-medium shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-rise lg:bottom-8 ${toast.kind === 'error' ? 'bg-owed text-white' : 'bg-white text-black'}`}>
+      {toast.msg}
     </div>
   )
 
   if (!worker) {
     const setLang = (c) => { setUiLang(c); writeStored('hakdaar.lang', c) }
     return (
-      <div className="flex h-dvh flex-col bg-[#F6F4EE]">
-        <Header s={s} language={uiLang} onLanguage={setLang} />
-        {degraded}
-        <div className="flex-1 overflow-y-auto">
-          <Login onLogin={login} lang={uiLang} initialMode={entry.mode} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
-          <footer className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 pb-6 text-sm text-muted">
-            <span>© 2026 HakDaar · {s.footer}</span>
-            <nav className="flex flex-wrap gap-x-4 gap-y-1 whitespace-nowrap">
-              <button onClick={() => setLegalDoc('terms')} className="hover:text-ink hover:underline">{s.terms}</button>
-              <button onClick={() => setLegalDoc('privacy')} className="hover:text-ink hover:underline">{s.privacy}</button>
-              <button onClick={() => setStoryOpen(true)} className="hover:text-ink hover:underline">{s.howItWorks}</button>
-            </nav>
-          </footer>
+      <div className="relative h-dvh overflow-hidden bg-black">
+        {/* Same looping video as the landing page, dimmed so the form stays readable */}
+        <video className="pointer-events-none absolute inset-0 size-full object-cover opacity-70" autoPlay muted loop playsInline aria-hidden="true">
+          <source src={BG_VIDEO} type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
+        <div className="relative z-10 flex h-full flex-col">
+          <Header s={s} language={uiLang} onLanguage={setLang} />
+          {degraded}
+          <div className="flex-1 overflow-y-auto scroll-thin">
+            <Login onLogin={login} lang={uiLang} initialMode={entry.mode} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
+            <footer className="mx-auto flex max-w-[920px] flex-wrap items-center justify-center gap-x-5 gap-y-1 px-4 pb-6 text-[12.5px] text-muted">
+              <span>© 2026 HakDaar</span>
+              <button onClick={() => setLegalDoc('terms')} className="hover:text-white">{s.terms}</button>
+              <button onClick={() => setLegalDoc('privacy')} className="hover:text-white">{s.privacy}</button>
+              <span className="basis-full text-center sm:basis-auto">{s.footer}</span>
+            </footer>
+          </div>
         </div>
         <HowItWorks s={s} language={uiLang} open={storyOpen} onClose={closeStory} />
         <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} note={s.legalNote} />
+        {toastEl}
       </div>
     )
   }
 
+  const nav = [
+    { id: 'chat', label: s.chat, active: tab === 'chat' && !drawer.open, onClick: () => { setTab('chat'); setDrawer((d) => ({ ...d, open: false })) } },
+    { id: 'ledger', label: s.ledgerTab, active: tab === 'ledger' && !drawer.open, onClick: () => { setTab('ledger'); setDrawer((d) => ({ ...d, open: false })) } },
+    { id: 'memory', label: s.memories, active: drawer.open && drawer.section === 'memories', onClick: () => openDrawer('memories') },
+    { id: 'alerts', label: s.alertsShort, active: drawer.open && drawer.section === 'alerts', onClick: () => openDrawer('alerts'), badge: repAlerts },
+  ]
   const tabs = [
     { id: 'chat', label: s.chat, icon: MessagesSquare, onClick: () => setTab('chat') },
     { id: 'ledger', label: s.ledgerTab, icon: WalletIcon, onClick: () => setTab('ledger'), dot: totals.amount_owed > 0 },
@@ -347,32 +357,31 @@ export default function App() {
   ]
 
   return (
-    <div className="flex h-dvh flex-col">
-      <Header s={s} language={language} onLanguage={changeLanguage}
+    <div className="flex h-dvh flex-col bg-bg">
+      <Header s={s} language={language} onLanguage={changeLanguage} nav={nav}
         worker={worker} alertCount={repAlerts} onAccount={() => openDrawer(repAlerts ? 'alerts' : 'memories')} />
       {degraded}
 
-      <main className="mx-auto grid min-h-0 w-full max-w-[1400px] flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_420px]">
-        <section className={`${tab === 'chat' ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-col lg:flex`}>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-black/5 px-4 py-2.5">
-            <Avatar name={worker.name} size="size-10" />
+      <main className="mx-auto grid min-h-0 w-full max-w-[1400px] flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-3 sm:p-6 sm:pt-5 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <section className={`${tab === 'chat' ? 'flex' : 'hidden'} panel min-h-0 min-w-0 flex-col overflow-hidden lg:flex`}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line px-4 py-3 sm:px-6">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-display text-xl font-bold leading-tight">{worker.name}</p>
-              <button onClick={() => openDrawer('memories')} className="truncate text-xs text-muted hover:text-brand">
-                🧠 {s.allLearned}: {learned.total}
+              <p className="truncate text-lg font-semibold leading-tight text-white">{worker.name}</p>
+              <button onClick={() => openDrawer('memories')} className="text-[13px] text-muted transition hover:text-white">
+                {s.allLearned}: <span className="tabular-nums text-fg2">{learned.total}</span>
               </button>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {!welcomeOpen && welcome?.nudges?.length > 0 && (
                 <button onClick={() => setWelcomeOpen(true)} title={s.reminders}
-                  className="relative grid size-10 place-items-center rounded-xl bg-danger-soft text-danger transition hover:bg-danger hover:text-white animate-pop">
-                  <BellRing className="size-5" />
-                  <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-danger text-[11px] font-bold text-white ring-2 ring-white">{welcome.nudges.length}</span>
+                  className="relative grid size-10 place-items-center rounded-full border border-line-strong bg-pill text-fg2 transition hover:bg-pill-hover hover:text-white">
+                  <BellRing className="size-[18px]" />
+                  <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-owed text-[11px] font-bold text-white">{welcome.nudges.length}</span>
                 </button>
               )}
-              <button onClick={() => setStoryOpen(true)} title={s.help}
-                className="grid size-10 place-items-center rounded-xl bg-amber-100 text-amber-800 transition hover:bg-amber-200">
-                <CirclePlay className="size-5" />
+              <button onClick={() => setStoryOpen(true)} title={s.howItWorks}
+                className="grid size-10 place-items-center rounded-full border border-line-strong bg-pill text-fg2 transition hover:bg-pill-hover hover:text-white">
+                <CircleHelp className="size-[18px]" />
               </button>
             </div>
             <Wallet s={s} totals={totals} onClick={() => setTab('ledger')} />
@@ -389,30 +398,29 @@ export default function App() {
           </div>
         </section>
 
-        <aside className={`${tab === 'ledger' ? 'block' : 'hidden'} min-h-0 lg:block lg:border-l lg:border-black/5 lg:bg-sand/40`}>
+        <aside className={`${tab === 'ledger' ? 'block' : 'hidden'} panel min-h-0 overflow-hidden lg:block`}>
           <LedgerPanel s={s} ledger={ledger} loading={loadingWorker} onUndo={undo} />
         </aside>
       </main>
 
-      <footer className="hidden border-t border-black/5 px-4 py-1.5 text-center text-xs text-muted lg:block" lang={language}>
-        <Info className="mr-1 inline size-3.5 align-[-2px]" />{s.footer}
-      </footer>
+      <footer className="hidden pb-3 text-center text-[12px] text-muted lg:block" lang={language}>{s.footer}</footer>
 
-      <nav className="grid grid-cols-3 border-t border-black/10 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {tabs.map(({ id, label, icon: Icon, dot, onClick }) => (
-          <button key={id} onClick={onClick}
-            className={`relative flex flex-col items-center gap-0.5 py-2 text-sm font-semibold ${tab === id ? 'text-brand' : 'text-muted'}`}>
-            <Icon className="size-6" />
-            {label}
-            {dot && <span className="absolute right-[30%] top-1.5 size-2.5 rounded-full bg-danger ring-2 ring-white" />}
-            {tab === id && <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-brand" />}
-          </button>
-        ))}
+      <nav className="grid grid-cols-3 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+        {tabs.map(({ id, label, icon: Icon, dot, onClick }) => {
+          const active = id === 'account' ? drawer.open : tab === id && !drawer.open
+          return (
+            <button key={id} onClick={onClick}
+              className={`relative flex flex-col items-center gap-0.5 pb-3.5 pt-2.5 text-[13px] font-medium transition ${active ? 'dot-active text-white' : 'text-muted'}`}>
+              <Icon className="size-[22px]" />
+              {label}
+              {dot && <span className="absolute right-[32%] top-2 size-2 rounded-full bg-owed" />}
+            </button>
+          )
+        })}
       </nav>
 
       <HowItWorks s={s} language={language} open={storyOpen} onClose={closeStory} />
       <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} note={s.legalNote} />
-      {celebrating && <Celebrate text={s.celebrate} />}
 
       <AccountDrawer
         s={s} open={drawer.open} section={drawer.section} onClose={() => setDrawer((d) => ({ ...d, open: false }))}
@@ -422,42 +430,30 @@ export default function App() {
         onOpenLegal={setLegalDoc}
         health={health} onRecheck={async () => { try { setHealth(await api.health()) } catch (e) { showToast(e.message, 'error') } }}
       />
-
-      {toast && (
-        <div role="status" className={`fixed inset-x-4 bottom-20 z-50 mx-auto max-w-md rounded-xl px-4 py-3 text-sm shadow-soft animate-slide-down lg:bottom-6 ${toast.kind === 'error' ? 'bg-danger text-white' : 'bg-ink text-white'}`}>
-          {toast.msg}
-        </div>
-      )}
+      {toastEl}
     </div>
   )
 }
 
-/** Earned / Paid / Owed tiles, each with an icon and a tooltip explaining the number. */
+/** Earned / Paid / Owed, styled like the landing page stats. Each explains itself on hover. */
 function Wallet({ s, totals, onClick }) {
   const earned = useCountUp(totals.amount_earned)
   const paid = useCountUp(totals.amount_paid)
   const owed = useCountUp(totals.amount_owed)
   const [eHelp, pHelp, oHelp] = s.howCalcLines.map(([, v]) => v)
-  const isOwed = totals.amount_owed > 0
-  const tile = 'flex flex-1 items-center gap-2 rounded-2xl px-2.5 py-1.5 text-left leading-tight transition hover:-translate-y-0.5 sm:flex-none'
+  const items = [
+    [s.wallet.earned, earned, eHelp, 'text-white'],
+    [s.wallet.paid, paid, pHelp, 'text-white'],
+    [s.wallet.owed, owed, oHelp, totals.amount_owed > 0 ? 'text-owed' : 'text-ok'],
+  ]
   return (
-    <div className="flex w-full gap-1.5 sm:w-auto">
-      <button onClick={onClick} title={eHelp} className={`${tile} bg-white ring-1 ring-black/5`}>
-        <HandCoins className="hidden size-5 shrink-0 text-amber-600 sm:block" />
-        <span><span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.earned}</span>
-          <span className="font-display text-lg font-bold tabular-nums">{inr(earned)}</span></span>
-      </button>
-      <button onClick={onClick} title={pHelp} className={`${tile} bg-white ring-1 ring-black/5`}>
-        <CircleCheck className="hidden size-5 shrink-0 text-brand sm:block" />
-        <span><span className="block text-[11px] font-semibold uppercase text-muted">{s.wallet.paid}</span>
-          <span className="font-display text-lg font-bold tabular-nums">{inr(paid)}</span></span>
-      </button>
-      <button onClick={onClick} title={oHelp}
-        className={`stamp flex flex-1 items-center gap-2 bg-white px-2.5 py-1 text-left leading-tight transition hover:rotate-0 sm:flex-none ${isOwed ? 'text-danger' : 'text-brand'}`}>
-        {isOwed ? <TriangleAlert className="hidden size-5 shrink-0 sm:block" /> : <CircleCheck className="hidden size-5 shrink-0 sm:block" />}
-        <span><span className="block text-[11px] font-extrabold">{s.wallet.owed}</span>
-          <span className="text-xl font-extrabold tabular-nums">{inr(owed)}</span></span>
-      </button>
+    <div className="grid w-full grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-card sm:w-auto">
+      {items.map(([label, value, help, tone]) => (
+        <button key={label} onClick={onClick} title={help} className="px-3 py-2 text-left transition hover:bg-white/[0.03] sm:px-4">
+          <span className="eyebrow block">{label}</span>
+          <span className={`font-display text-[22px] leading-tight tabular-nums ${tone}`}>{inr(value)}</span>
+        </button>
+      ))}
     </div>
   )
 }

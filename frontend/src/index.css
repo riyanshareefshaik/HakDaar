@@ -1,152 +1,114 @@
 @import "tailwindcss";
 
+/* HakDaar app: same visual language as the landing page (public/landing).
+   Black canvas, Inter for UI, a dot-matrix display face for numbers and titles,
+   white pills for primary actions, dark #28282a pills with thin light borders for secondary ones. */
+
+@font-face {
+  font-family: "Geist Pixel Circle";
+  src: url("/landing/fonts/GeistPixel-Circle.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
 @theme {
-  --color-brand: #1F6F4A;
-  --color-brand-dark: #17563A;
-  --color-brand-soft: #E6F1EB;
-  --color-cream: #FAF8F3;
-  --color-sand: #F1ECE1;
-  --color-ink: #1E2A24;
-  --color-muted: #66736C;
-  --color-warn: #D97706;
-  --color-warn-soft: #FEF3E2;
-  --color-danger: #DC2626;
-  --color-danger-soft: #FDECEC;
-  --font-sans: "Noto Sans", "Noto Sans Telugu", "Noto Sans Devanagari", system-ui, sans-serif;
-  /* Warm Indian display face for headings, names and money (covers Latin, Devanagari and Telugu) */
-  --font-display: "Baloo 2", "Baloo Tammudu 2", "Noto Sans", "Noto Sans Telugu", "Noto Sans Devanagari", system-ui, sans-serif;
-  --color-ink-blue: #1D3557;
-  --color-saffron: #E07A1F;
-  --color-paper: #FFFDF7;
-  --shadow-soft: 0 1px 2px rgb(30 42 36 / 0.04), 0 4px 16px rgb(30 42 36 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(30 42 36 / 0.04), 0 12px 32px -8px rgb(31 111 74 / 0.22);
+  --color-bg: #000000;
+  --color-surface: #0e0e0f;
+  --color-card: #161618;
+  --color-raised: #1d1d1f;
+  --color-pill: #28282a;
+  --color-pill-hover: #323234;
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-strong: rgb(255 255 255 / 0.4);
+  --color-fg: #ffffff;
+  --color-fg2: #c8c8c8;
+  --color-muted: #8e8e8e;
+  --color-owed: #ff6b5e;
+  --color-ok: #6fd6a2;
+  --color-warn: #f2b25c;
+
+  --font-sans: "Inter", "Noto Sans Telugu", "Noto Sans Devanagari", "Segoe UI", system-ui, sans-serif;
+  --font-display: "BubbledotICG-FinePos", "Geist Pixel Circle", "Noto Sans Telugu", "Noto Sans Devanagari", monospace;
 }
 
 html, body, #root { height: 100%; }
 body {
-  @apply bg-cream text-ink font-sans antialiased;
-  font-size: 17px;
+  @apply bg-bg font-sans text-fg antialiased;
+  font-size: 16px;
   line-height: 1.55;
+  color-scheme: dark;
 }
+:lang(te), :lang(hi) { line-height: 1.7; }
 
-/* Telugu/Devanagari glyphs need a little more line height to breathe */
-:lang(te), :lang(hi) { line-height: 1.75; }
+::selection { background: rgb(255 255 255 / 0.25); }
 
-.card { @apply bg-white rounded-2xl shadow-soft border border-black/5; }
-
-.scroll-thin { scrollbar-width: thin; scrollbar-color: #d6d0c4 transparent; }
+.scroll-thin { scrollbar-width: thin; scrollbar-color: #3a3a3c transparent; }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-@keyframes slide-down {
-  from { transform: translateY(-12px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@layer components {
+  .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+
+  /* surfaces */
+  .panel { @apply rounded-[28px] border border-line bg-surface; }
+  .card { @apply rounded-2xl border border-line bg-card; }
+
+  /* buttons */
+  .btn-white {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 font-semibold text-black transition;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.15), 0 0 22px rgb(255 255 255 / 0.18);
+  }
+  .btn-white:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25), 0 0 30px rgb(255 255 255 / 0.3); }
+  .btn-white:disabled { @apply opacity-40; box-shadow: none; }
+
+  .btn-dark {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line-strong bg-pill px-5 py-2.5 font-medium text-fg2 transition;
+  }
+  .btn-dark:hover:not(:disabled) { @apply bg-pill-hover text-white; }
+  .btn-dark:disabled { @apply opacity-40; }
+
+  .btn-ghost { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white; }
+
+  /* chips & labels */
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-pill px-2.5 py-1 text-xs font-medium text-fg2; }
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-muted; }
+
+  /* form fields */
+  .field {
+    @apply w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-[17px] text-white outline-none transition placeholder:text-muted/70;
+  }
+  .field:focus, .field:focus-within { @apply border-white/50; }
+  .field-error { @apply border-owed!; box-shadow: 0 0 0 3px rgb(255 107 94 / 0.15); }
+
+  /* three small dots under an active item, as on the landing page nav */
+  .dot-active { position: relative; }
+  .dot-active::after {
+    content: ""; position: absolute; left: 50%; bottom: 4px; width: 3px; height: 3px; margin-left: -1.5px;
+    border-radius: 50%; background: currentColor; box-shadow: -5px 0 0 currentColor, 5px 0 0 currentColor;
+  }
 }
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0.45); }
-  70% { box-shadow: 0 0 0 12px rgb(220 38 38 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0); }
-}
-@keyframes bounce-dot {
-  0%, 80%, 100% { transform: translateY(0); opacity: .4; }
-  40% { transform: translateY(-5px); opacity: 1; }
-}
-@keyframes fade-up {
-  from { transform: translateY(6px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.animate-slide-down { animation: slide-down .35s ease-out both; }
-.animate-pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
-.animate-fade-up { animation: fade-up .25s ease-out both; }
+
+/* ---------- motion (kept subtle) ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes collapse { to { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@keyframes bounce-dot { 0%, 80%, 100% { transform: translateY(0); opacity: .35; } 40% { transform: translateY(-4px); opacity: 1; } }
+@keyframes eq { 0%, 100% { height: 25%; } 50% { height: 100%; } }
+@keyframes ping-soft { 0% { box-shadow: 0 0 0 0 rgb(255 107 94 / .45); } 80%, 100% { box-shadow: 0 0 0 10px rgb(255 107 94 / 0); } }
+
+.animate-rise { animation: rise .5s cubic-bezier(.22,1,.36,1) both; }
+.animate-fade { animation: fade .25s ease both; }
+.animate-drawer { animation: drawer-in .32s cubic-bezier(.22,1,.36,1) both; }
+.animate-sheet { animation: sheet-in .32s cubic-bezier(.22,1,.36,1) both; }
+.animate-collapse { animation: collapse .25s ease-in both; }
+.animate-ping-soft { animation: ping-soft 1.8s ease-out infinite; }
 .typing-dot { animation: bounce-dot 1.2s infinite ease-in-out; }
 .typing-dot:nth-child(2) { animation-delay: .15s; }
 .typing-dot:nth-child(3) { animation-delay: .3s; }
+.eq-bar { height: 40%; animation: eq .9s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-slide-down, .animate-pulse-ring, .animate-fade-up, .typing-dot { animation: none; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-
-@keyframes drawer-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-.animate-drawer { animation: drawer-in .28s cubic-bezier(.2,.8,.2,1) both; }
-@media (prefers-reduced-motion: reduce) { .animate-drawer { animation: none; } }
-
-@keyframes eq { 0%, 100% { height: 25%; } 50% { height: 100%; } }
-.eq-bar { height: 40%; animation: eq .9s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .eq-bar { animation: none; } }
-
-@keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.animate-slide-up { animation: slide-up .28s cubic-bezier(.2,.8,.2,1) both; }
-@media (prefers-reduced-motion: reduce) { .animate-slide-up { animation: none; } }
-
-/* Welcome card: springs in, collapses away */
-@keyframes pop { 0% { transform: translateY(8px) scale(.97); opacity: 0; } 100% { transform: none; opacity: 1; } }
-@keyframes collapse { to { transform: translateY(-6px) scale(.97); opacity: 0; } }
-.animate-pop { animation: pop .35s cubic-bezier(.2,.9,.3,1.2) both; }
-.animate-collapse { animation: collapse .28s ease-in both; }
-@media (prefers-reduced-motion: reduce) { .animate-pop, .animate-collapse { animation: none; } }
-
-/* Khata (account book) paper: warm page, faint ruled lines and a red margin line */
-.chat-bg {
-  background-color: #FFFBF1;
-  background-image:
-    linear-gradient(90deg, transparent 0, transparent 38px, rgb(220 38 38 / 0.22) 38px, rgb(220 38 38 / 0.22) 40px, transparent 40px),
-    repeating-linear-gradient(180deg, transparent 0, transparent 31px, rgb(29 53 87 / 0.07) 31px, rgb(29 53 87 / 0.07) 32px);
-  background-attachment: local;
-}
-@media (min-width: 640px) {
-  .chat-bg { background-image:
-    linear-gradient(90deg, transparent 0, transparent 54px, rgb(220 38 38 / 0.22) 54px, rgb(220 38 38 / 0.22) 56px, transparent 56px),
-    repeating-linear-gradient(180deg, transparent 0, transparent 31px, rgb(29 53 87 / 0.07) 31px, rgb(29 53 87 / 0.07) 32px); }
-}
-
-/* Decorative border under the header: a small repeating diamond motif */
-.header-trim {
-  height: 6px;
-  background:
-    linear-gradient(135deg, #E07A1F 25%, transparent 25%) -6px 0 / 12px 6px,
-    linear-gradient(225deg, #E07A1F 25%, transparent 25%) -6px 0 / 12px 6px,
-    #F4C06A;
-}
-
-/* Receipt stub: perforated edges on left and right */
-.stub {
-  --hole: 7px;
-  background:
-    radial-gradient(circle at 0 50%, transparent var(--hole), #fff calc(var(--hole) + .5px)) left / 51% 100% no-repeat,
-    radial-gradient(circle at 100% 50%, transparent var(--hole), #fff calc(var(--hole) + .5px)) right / 51% 100% no-repeat;
-  filter: drop-shadow(0 1px 1px rgb(30 42 36 / .08)) drop-shadow(0 4px 10px rgb(30 42 36 / .06));
-}
-
-/* Rubber stamp */
-.stamp {
-  font-family: var(--font-display);
-  border: 2.5px solid currentColor;
-  outline: 1.5px solid currentColor;
-  outline-offset: 2px;
-  border-radius: 8px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  transform: rotate(-4deg);
-  mix-blend-mode: multiply;
-}
-@keyframes stamp-in { 0% { transform: rotate(-4deg) scale(1.8); opacity: 0; } 70% { transform: rotate(-4deg) scale(.95); opacity: 1; } 100% { transform: rotate(-4deg) scale(1); } }
-.animate-stamp { animation: stamp-in .45s cubic-bezier(.3,1.4,.5,1) both; }
-@media (prefers-reduced-motion: reduce) { .animate-stamp { animation: none; } }
-
-.font-display { font-family: var(--font-display); }
-
-.header-gradient {
-  background: linear-gradient(100deg, #17563A 0%, #1F6F4A 45%, #23805A 100%);
-}
-
-/* Celebration when an employer has paid everything */
-@keyframes confetti-fall {
-  0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
-  100% { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); opacity: .9; }
-}
-.confetti { position: fixed; top: 0; width: 9px; height: 14px; border-radius: 2px; z-index: 60; pointer-events: none;
-  animation: confetti-fall var(--dur) cubic-bezier(.2,.6,.4,1) forwards; }
-@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

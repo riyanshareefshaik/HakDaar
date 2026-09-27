@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react'
-import { AlertCircle, ArrowLeft, Check, CheckCircle2, Eye, EyeOff, Loader2, Phone } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Phone } from 'lucide-react'
 import { api } from '../api'
 import { t } from '../i18n'
-import Logo from './Logo'
 
 const digits = (v) => v.replace(/\D/g, '')
 
@@ -102,81 +101,66 @@ export default function Login({ onLogin, lang = 'en', onOpenLegal, onHowItWorks,
     : resetQuestion ? s.resetTitle : s.continueBtn
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-0 px-4 py-6 sm:py-10 lg:grid-cols-[1fr_1.1fr]" lang={lang}>
-      {/* Left: plain brand panel (desktop) */}
-      <aside className="hidden flex-col justify-between rounded-l-xl bg-brand p-10 text-white lg:flex">
-        <div>
-          <Logo size={48} />
-          <h2 className="mt-8 font-display text-3xl font-bold leading-tight">{s.sideTitle}</h2>
-          <p className="mt-3 text-white/80">{s.sideBody}</p>
-          <ul className="mt-8 space-y-3">
-            {s.sidePoints.map((p) => (
-              <li key={p} className="flex items-center gap-3"><Check className="size-5 shrink-0 text-amber-300" /> {p}</li>
-            ))}
-          </ul>
-        </div>
-        <button onClick={onHowItWorks} className="self-start text-sm font-semibold text-amber-200 underline underline-offset-4 hover:text-white">
-          {s.howItWorks} →
-        </button>
-      </aside>
+    <div className="mx-auto w-full max-w-[460px] px-4 pb-10 pt-6 sm:pt-10" lang={lang}>
+      {/* Title in the same dot-matrix face as the landing headline */}
+      <div className="mb-6 text-center animate-rise">
+        <h1 className="font-display text-[clamp(30px,6vw,44px)] leading-[1.05] text-white">{title}</h1>
+        <p className="mx-auto mt-2 max-w-[36ch] text-[15.5px] text-fg2/80">{sub}</p>
+      </div>
 
-      {/* Right: form */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm sm:p-8 lg:rounded-l-none">
+      <section className="rounded-[28px] border border-line bg-black/55 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-7 animate-rise" style={{ animationDelay: '.08s' }}>
         {mode === 'reset' ? (
-          <button onClick={() => go('login')} className="mb-4 flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
+          <button onClick={() => go('login')} className="btn-ghost -ml-2 mb-3">
             <ArrowLeft className="size-4" /> {s.backToLogin}
           </button>
         ) : (
-          <div className="mb-6 flex border-b border-black/10">
+          <div className="mb-6 grid grid-cols-2 rounded-full bg-white p-1">
             {[['login', s.login], ['register', s.createAccount]].map(([m, label]) => (
               <button key={m} onClick={() => go(m)}
-                className={`-mb-px border-b-2 px-4 pb-2.5 font-semibold transition ${mode === m ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}>
+                className={`rounded-full py-2 text-[14.5px] font-medium transition ${mode === m ? 'bg-black text-white' : 'text-[#2e2e2e] opacity-60 hover:opacity-90'}`}>
                 {label}
               </button>
             ))}
           </div>
         )}
 
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="mt-1 text-muted">{sub}</p>
-
         {notice && (
-          <p className="mt-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
+          <p className="mb-4 flex items-start gap-2 rounded-2xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok" role="status">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> {notice}
           </p>
         )}
         {error && (
-          <p className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger" role="alert">
+          <p className="mb-4 flex items-start gap-2 rounded-2xl border border-owed/40 bg-owed/10 p-3 text-sm text-owed" role="alert">
             <AlertCircle className="mt-0.5 size-4 shrink-0" /> {error}
           </p>
         )}
 
-        <form onSubmit={submit} noValidate className="mt-6 space-y-5">
+        <form onSubmit={submit} noValidate className="space-y-5">
           {mode === 'register' && (
             <Field id="f-name" label={s.name} error={errors.name}>
               <input id="f-name" value={name} maxLength={60} autoComplete="name"
                 onChange={(e) => { setName(e.target.value); clear('name') }}
-                className={inputCls(errors.name)} aria-invalid={!!errors.name} />
+                className={`field ${errors.name ? 'field-error' : ''}`} aria-invalid={!!errors.name} />
             </Field>
           )}
 
           {(mode !== 'reset' || !resetQuestion) && (
             <Field id="f-phone" label={s.phone} error={errors.phone}>
-              <div className={`flex items-center rounded-lg border bg-white ${errors.phone ? 'border-danger ring-2 ring-danger/15' : 'border-black/15 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15'}`}>
-                <span className="flex items-center gap-1.5 border-r border-black/10 px-3 text-muted"><Phone className="size-4" /> +91</span>
+              <div className={`field flex items-center gap-0 p-0 ${errors.phone ? 'field-error' : ''}`}>
+                <span className="flex items-center gap-1.5 border-r border-line px-3.5 text-muted"><Phone className="size-4" /> +91</span>
                 <input id="f-phone" value={phone} inputMode="tel" autoComplete="tel-national" maxLength={14} placeholder="98765 43210"
                   onChange={(e) => { setPhone(e.target.value.replace(/[^\d ]/g, '')); clear('phone') }}
-                  className="min-w-0 flex-1 rounded-r-lg bg-transparent px-3 py-2.5 text-lg tracking-wide outline-none" aria-invalid={!!errors.phone} />
+                  className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 tracking-wide text-white outline-none placeholder:text-muted/60" aria-invalid={!!errors.phone} />
               </div>
             </Field>
           )}
 
           {mode === 'reset' && resetQuestion && (
             <>
-              <p className="rounded-lg bg-sand/60 p-3 text-sm"><span className="font-semibold">{s.securityQ}:</span> {s.questions[resetQuestion - 1]}</p>
+              <p className="rounded-2xl border border-line bg-card p-3 text-sm text-fg2"><span className="font-semibold text-white">{s.securityQ}:</span> {s.questions[resetQuestion - 1]}</p>
               <Field id="f-answer" label={s.answer} error={errors.answer}>
                 <input id="f-answer" value={answer} maxLength={80} autoComplete="off"
-                  onChange={(e) => { setAnswer(e.target.value); clear('answer') }} className={inputCls(errors.answer)} />
+                  onChange={(e) => { setAnswer(e.target.value); clear('answer') }} className={`field ${errors.answer ? 'field-error' : ''}`} />
               </Field>
             </>
           )}
@@ -185,7 +169,7 @@ export default function Login({ onLogin, lang = 'en', onOpenLegal, onHowItWorks,
             <Field id="f-pin" label={mode === 'reset' ? s.newPin : s.pin} error={errors.pin}
               right={<ShowToggle show={showPin} onToggle={() => setShowPin(!showPin)} s={s} />}
               extra={mode === 'login' && (
-                <button type="button" onClick={() => go('reset')} className="text-sm font-semibold text-brand hover:underline">{s.forgotPin}</button>
+                <button type="button" onClick={() => go('reset')} className="text-sm font-medium text-fg2 underline-offset-4 hover:text-white hover:underline">{s.forgotPin}</button>
               )}>
               <PinInput id="f-pin" value={pin} onChange={(v) => { setPin(v); clear('pin') }} show={showPin} invalid={!!errors.pin} />
             </Field>
@@ -198,64 +182,58 @@ export default function Login({ onLogin, lang = 'en', onOpenLegal, onHowItWorks,
           )}
 
           {mode === 'register' && (
-            <fieldset className="space-y-3 rounded-lg border border-black/10 p-4">
-              <legend className="px-1 text-sm font-semibold">{s.securityQ}</legend>
+            <fieldset className="space-y-4 rounded-2xl border border-line p-4">
+              <legend className="eyebrow px-1.5">{s.securityQ}</legend>
               <p className="-mt-1 text-sm text-muted">{s.securityHint}</p>
               <Field id="f-q" label={s.chooseQuestion} error={errors.question}>
                 <select id="f-q" value={question} onChange={(e) => { setQuestion(e.target.value); clear('question') }}
-                  className={`${inputCls(errors.question)} appearance-none bg-[length:16px] bg-[right_12px_center] bg-no-repeat`}
-                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2366736C' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}>
+                  className={`field appearance-none bg-[length:16px] bg-[right_14px_center] bg-no-repeat pr-10 ${errors.question ? 'field-error' : ''}`}
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e8e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}>
                   <option value="">—</option>
                   {s.questions.map((q, i) => <option key={q} value={i + 1}>{q}</option>)}
                 </select>
               </Field>
               <Field id="f-ans" label={s.answer} error={errors.answer}>
                 <input id="f-ans" value={answer} maxLength={80} autoComplete="off"
-                  onChange={(e) => { setAnswer(e.target.value); clear('answer') }} className={inputCls(errors.answer)} />
+                  onChange={(e) => { setAnswer(e.target.value); clear('answer') }} className={`field ${errors.answer ? 'field-error' : ''}`} />
               </Field>
             </fieldset>
           )}
 
           {mode === 'register' && (
             <div>
-              <label className={`flex items-start gap-3 rounded-lg p-2 text-sm ${errors.agree ? 'bg-red-50 ring-1 ring-danger' : ''}`}>
+              <label className={`flex items-start gap-3 rounded-2xl p-2.5 text-sm text-fg2 ${errors.agree ? 'bg-owed/10 ring-1 ring-owed/60' : ''}`}>
                 <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); clear('agree') }}
-                  className="mt-0.5 size-5 shrink-0 accent-[#1F6F4A]" aria-invalid={!!errors.agree} />
+                  className="mt-0.5 size-5 shrink-0 accent-white" aria-invalid={!!errors.agree} />
                 <span>
                   {s.agreePrefix}{' '}
-                  <button type="button" onClick={() => onOpenLegal('terms')} className="font-semibold text-brand underline underline-offset-2">{s.terms}</button>
+                  <button type="button" onClick={() => onOpenLegal('terms')} className="font-medium text-white underline underline-offset-2">{s.terms}</button>
                   {' '}{s.and}{' '}
-                  <button type="button" onClick={() => onOpenLegal('privacy')} className="font-semibold text-brand underline underline-offset-2">{s.privacy}</button>
+                  <button type="button" onClick={() => onOpenLegal('privacy')} className="font-medium text-white underline underline-offset-2">{s.privacy}</button>
                 </span>
               </label>
               {errors.agree && <FieldError text={errors.agree} />}
             </div>
           )}
 
-          <button type="submit" disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-lg font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60">
+          <button type="submit" disabled={busy} className="btn-white w-full py-3 text-[15px]">
             {busy && <Loader2 className="size-5 animate-spin" />} {submitLabel}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-muted lg:hidden">
-          <button onClick={onHowItWorks} className="font-semibold text-brand hover:underline">{s.howItWorks}</button>
-        </p>
       </section>
+
+      <p className="mt-5 text-center">
+        <button onClick={onHowItWorks} className="btn-ghost">{s.howItWorks} →</button>
+      </p>
     </div>
   )
 }
-
-const inputCls = (err) =>
-  `w-full rounded-lg border bg-white px-3 py-2.5 text-lg outline-none transition ${err
-    ? 'border-danger ring-2 ring-danger/15'
-    : 'border-black/15 focus:border-brand focus:ring-2 focus:ring-brand/15'}`
 
 function Field({ id, label, error, children, right, extra }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label htmlFor={id} className="font-medium">{label}</label>
+        <label htmlFor={id} className="text-[14.5px] font-medium text-fg2">{label}</label>
         {right}
       </div>
       {children}
@@ -269,7 +247,7 @@ function Field({ id, label, error, children, right, extra }) {
 
 function FieldError({ text }) {
   return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-danger" role="alert">
+    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-owed" role="alert">
       <AlertCircle className="size-4 shrink-0" /> {text}
     </p>
   )
@@ -277,7 +255,7 @@ function FieldError({ text }) {
 
 function ShowToggle({ show, onToggle, s }) {
   return (
-    <button type="button" onClick={onToggle} className="flex items-center gap-1 text-sm font-medium text-muted hover:text-ink">
+    <button type="button" onClick={onToggle} className="flex items-center gap-1 text-sm font-medium text-muted hover:text-white">
       {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />} {show ? s.hidePin : s.showPin}
     </button>
   )
@@ -302,8 +280,7 @@ function PinInput({ id, value, onChange, show, invalid }) {
           inputMode="numeric" type={show ? 'text' : 'password'} maxLength={1} autoComplete="off" aria-label={`PIN digit ${i + 1}`}
           onChange={(e) => { const ch = digits(e.target.value).slice(-1); if (ch || !e.target.value) setAt(i, ch) }}
           onKeyDown={(e) => { if (e.key === 'Backspace' && !value[i] && i > 0) { refs.current[i - 1]?.focus(); setAt(i - 1, '') } }}
-          className={`size-14 rounded-lg border bg-white text-center text-2xl font-semibold outline-none transition ${invalid
-            ? 'border-danger ring-2 ring-danger/15' : 'border-black/15 focus:border-brand focus:ring-2 focus:ring-brand/15'}`} />
+          className={`field size-14 p-0 text-center font-display text-2xl ${invalid ? 'field-error' : ''}`} />
       ))}
     </div>
   )

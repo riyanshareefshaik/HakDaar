@@ -78,12 +78,13 @@ cd frontend && npm install && npm run dev
 
 ---
 
-## Design: a digital *khata*
-HakDaar looks like the account book (*khata*) workers and shopkeepers already know, not a chat app:
-ruled paper with a red margin, HakDaar's entries on white paper and the worker's in blue ink, every recorded fact
-as a torn **receipt stub** with a **NOTED** rubber stamp, and money owed as a red **OWED** stamp. Headings and
-amounts use *Baloo 2 / Baloo Tammudu 2*, a warm display face that covers English, Hindi and Telugu.
-Service status (Hindsight, Groq) lives in **My account → Connections**.
+## Design
+The app shares one visual language with the landing page: a black canvas, **Inter** for text, the
+**BubbledotICG-FinePos** dot-matrix face (with **Geist Pixel Circle** as a local fallback) for money and titles,
+white pills for primary actions, dark `#28282a` pills with thin light borders for secondary ones, and the landing
+page's white nav pill with its three-dot active marker. The sign-in screen uses the same looping background video.
+Tokens and shared classes (`btn-white`, `btn-dark`, `panel`, `card`, `field`, `dot-active`) live in
+`frontend/src/index.css`. Service status (Hindsight, Groq) is under **My account → Connections**.
 
 ## Built for workers who can't read easily
 - **How HakDaar works:** a 6-step guide to the features (with read-aloud), from the log-in page and the ▶ button.

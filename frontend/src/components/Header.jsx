@@ -1,55 +1,64 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Globe } from 'lucide-react'
-import Logo from './Logo'
 import { LANGS } from '../i18n'
+import Logo from './Logo'
 
-const AVATAR_COLORS = ['bg-emerald-600', 'bg-amber-600', 'bg-sky-700', 'bg-rose-600', 'bg-violet-600', 'bg-teal-700']
-
-export function Avatar({ name, size = 'size-10' }) {
+export function Avatar({ name, size = 'size-8' }) {
   const initials = name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-  const color = AVATAR_COLORS[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length]
   return (
-    <span className={`${size} ${color} grid shrink-0 place-items-center rounded-full font-bold text-white ring-2 ring-white/30`}>
+    <span className={`${size} grid shrink-0 place-items-center rounded-full bg-white text-[13px] font-semibold text-black`}>
       {initials}
     </span>
   )
 }
 
-export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount }) {
+/**
+ * Same header as the landing page: round white logo, a white nav pill with a three-dot active marker,
+ * and dark pills for language and account.
+ */
+export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount, nav = [] }) {
   return (
-    <header className="header-gradient text-white">
-      <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-2.5 lg:px-6">
-        <a href="/landing/" className="flex min-w-0 flex-1 items-center gap-3" title="HakDaar home">
-          <Logo size={42} className="shrink-0 drop-shadow-sm" />
-          <span className="min-w-0">
-            <span className="block truncate font-display text-2xl font-extrabold leading-none tracking-tight">Hak<span className="text-amber-300">Daar</span></span>
-            <span className="hidden truncate text-sm leading-tight text-white/80 sm:block">{s.tagline}</span>
-          </span>
+    <header className="relative z-20 shrink-0 px-3 pt-3 sm:px-6 sm:pt-4">
+      <div className="mx-auto flex max-w-[1400px] items-center gap-3 sm:gap-5">
+        <a href="/landing/" title="HakDaar home"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.16)] transition hover:scale-[1.04]">
+          <Logo size={30} tone="dark" />
         </a>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        {nav.length > 0 ? (
+          <nav className="hidden h-11 flex-1 items-center justify-around rounded-full bg-white px-2 md:flex md:max-w-[460px]" aria-label="Main">
+            {nav.map((n) => (
+              <button key={n.id} onClick={n.onClick} aria-current={n.active ? 'page' : undefined}
+                className={`relative px-3 pb-2.5 pt-2 text-[14.5px] font-medium tracking-[-0.01em] text-[#2e2e2e] transition ${n.active ? 'dot-active opacity-100' : 'opacity-50 hover:opacity-75'}`}>
+                {n.label}
+                {n.badge > 0 && <span className="absolute -right-0.5 top-0.5 grid size-4 place-items-center rounded-full bg-owed text-[10px] font-bold text-white">{n.badge}</span>}
+              </button>
+            ))}
+          </nav>
+        ) : (
+          <span className="font-display text-xl text-white">HakDaar</span>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
           {onLanguage && <LanguageMenu language={language} onChange={onLanguage} />}
           {worker && (
             <button onClick={onAccount} title={s.account}
-              className="relative flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 transition hover:bg-white/20">
-              <Avatar name={worker.name} size="size-8" />
-              <span className="hidden max-w-32 truncate font-semibold sm:block">{worker.name}</span>
-              <ChevronDown className="hidden size-4 opacity-80 min-[420px]:block" />
+              className="relative flex h-11 items-center gap-2 rounded-full border border-line-strong bg-pill pl-1.5 pr-3 text-fg2 transition hover:bg-pill-hover hover:text-white">
+              <Avatar name={worker.name} />
+              <span className="hidden max-w-32 truncate text-[14.5px] font-medium sm:block">{worker.name}</span>
+              <ChevronDown className="hidden size-4 opacity-70 sm:block" />
               {alertCount > 0 && (
-                <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-warn text-[11px] font-bold ring-2 ring-brand">
-                  {alertCount}
-                </span>
+                <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-owed text-[11px] font-bold text-white">{alertCount}</span>
               )}
             </button>
           )}
         </div>
       </div>
-      <div className="header-trim" aria-hidden />
     </header>
   )
 }
 
-/** Globe button with a dropdown of languages in their own script. */
+/** Globe pill with a dropdown of languages in their own script. */
 export function LanguageMenu({ language, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -67,27 +76,24 @@ export function LanguageMenu({ language, onChange }) {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)} aria-haspopup="listbox" aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-2 font-semibold transition hover:bg-white/20 sm:px-3">
-        <Globe className="size-4.5" />
+        className="flex h-11 items-center gap-1.5 rounded-full border border-line-strong bg-pill px-3.5 text-[14.5px] font-medium text-fg2 transition hover:bg-pill-hover hover:text-white">
+        <Globe className="size-4" />
         <span className="hidden min-[420px]:inline">{current.label}</span>
-        <ChevronDown className={`size-4 opacity-80 transition ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`size-4 opacity-70 transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <ul role="listbox" className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-black/5 bg-white p-1.5 text-ink shadow-soft animate-fade-up">
+        <ul role="listbox" className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl bg-white p-1.5 text-[#2e2e2e] shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-fade">
           {LANGS.map((l) => {
             const active = l.code === language
             return (
               <li key={l.code}>
                 <button role="option" aria-selected={active} onClick={() => { onChange(l.code); setOpen(false) }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-brand-soft' : 'hover:bg-sand'}`}>
-                  <span className={`grid size-9 place-items-center rounded-lg text-sm font-bold ${active ? 'bg-brand text-white' : 'bg-sand text-muted'}`}>
-                    {l.code === 'en' ? 'En' : l.label.slice(0, 1)}
-                  </span>
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-black/5' : 'hover:bg-black/5'}`}>
                   <span className="flex-1">
                     <span className="block font-semibold leading-tight">{l.label}</span>
-                    <span className="block text-xs text-muted">{l.native}</span>
+                    <span className="block text-xs opacity-60">{l.native}</span>
                   </span>
-                  {active && <Check className="size-4.5 text-brand" />}
+                  {active && <Check className="size-4" />}
                 </button>
               </li>
             )

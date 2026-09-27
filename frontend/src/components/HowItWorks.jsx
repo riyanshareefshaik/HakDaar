@@ -3,14 +3,7 @@ import { BellRing, Calculator, Grid2x2, Mic, ShieldAlert, Undo2, Volume2, Volume
 import { LANGS } from '../i18n'
 import { speak, stopSpeaking } from '../hooks'
 
-const ICONS = [
-  [Mic, 'bg-amber-50 text-amber-700'],
-  [Grid2x2, 'bg-sky-50 text-sky-700'],
-  [Calculator, 'bg-emerald-50 text-emerald-700'],
-  [BellRing, 'bg-violet-50 text-violet-700'],
-  [ShieldAlert, 'bg-red-50 text-red-700'],
-  [Undo2, 'bg-stone-100 text-stone-700'],
-]
+const ICONS = [Mic, Grid2x2, Calculator, BellRing, ShieldAlert, Undo2]
 
 /** A short guide to the app's features, one per step, each with read-aloud. */
 export default function HowItWorks({ s, language, open, onClose }) {
@@ -18,7 +11,7 @@ export default function HowItWorks({ s, language, open, onClose }) {
   const [speaking, setSpeaking] = useState(false)
   const steps = s.features
   const [title, text] = steps[i]
-  const [Icon, tint] = ICONS[i]
+  const Icon = ICONS[i]
   const last = i === steps.length - 1
   const tag = LANGS.find((l) => l.code === language)?.speech || 'en-IN'
 
@@ -45,39 +38,35 @@ export default function HowItWorks({ s, language, open, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center sm:p-4" onClick={close} role="dialog" aria-modal="true" aria-label={s.howItWorks} lang={language}>
-      <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-black/10 px-5 py-3">
-          <p className="font-semibold">{s.howItWorks}</p>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted">{s.stepOf(i + 1, steps.length)}</span>
-            <button onClick={close} aria-label={s.close} className="rounded-md p-1 text-muted hover:bg-sand hover:text-ink"><X className="size-5" /></button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-md animate-fade sm:items-center sm:p-4" onClick={close} role="dialog" aria-modal="true" aria-label={s.howItWorks} lang={language}>
+      <div className="w-full max-w-lg rounded-t-[28px] border border-line bg-surface shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-sheet sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 pt-5">
+          <p className="eyebrow">{s.howItWorks}</p>
+          <button onClick={close} aria-label={s.close} className="rounded-full p-1.5 text-muted hover:bg-white/10 hover:text-white"><X className="size-5" /></button>
         </div>
 
-        <div key={i} className="flex gap-4 px-5 py-6 animate-fade-up">
-          <span className={`grid size-16 shrink-0 place-items-center rounded-xl ${tint}`}><Icon className="size-8" strokeWidth={1.8} /></span>
-          <div className="min-w-0">
-            <h3 className="text-xl font-bold">{title}</h3>
-            <p className="mt-1.5 text-[1.05rem] leading-relaxed text-ink/80">{text}</p>
-            <button onClick={listen}
-              className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-semibold transition ${speaking ? 'border-brand bg-brand text-white' : 'border-black/15 text-ink hover:bg-sand'}`}>
-              {speaking ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />} {speaking ? s.stopReading : s.listen}
-            </button>
+        <div key={i} className="px-6 pb-6 pt-4 animate-rise">
+          <div className="flex items-center gap-4">
+            <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white text-black"><Icon className="size-6" strokeWidth={1.8} /></span>
+            <span className="font-display text-5xl leading-none tabular-nums text-white/25">{String(i + 1).padStart(2, '0')}</span>
           </div>
+          <h3 className="mt-5 text-2xl font-semibold tracking-[-0.01em] text-white">{title}</h3>
+          <p className="mt-2 text-[16.5px] leading-relaxed text-fg2/80">{text}</p>
+          <button onClick={listen} className="btn-ghost -ml-3 mt-3">
+            {speaking ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />} {speaking ? s.stopReading : s.listen}
+          </button>
         </div>
 
-        <div className="flex items-center gap-3 border-t border-black/10 px-5 py-3">
-          <div className="flex flex-1 gap-1">
+        <div className="flex items-center gap-3 border-t border-line px-6 py-4">
+          <div className="flex flex-1 items-center gap-1.5">
             {steps.map((_, k) => (
               <button key={k} onClick={() => setI(k)} aria-label={`${k + 1}`}
-                className={`h-1.5 flex-1 rounded-full transition ${k <= i ? 'bg-brand' : 'bg-black/10'}`} />
+                className={`h-1 flex-1 rounded-full transition ${k <= i ? 'bg-white' : 'bg-white/15'}`} />
             ))}
           </div>
-          <button onClick={() => setI(i - 1)} disabled={i === 0}
-            className="rounded-lg px-3 py-2 font-semibold text-muted hover:bg-sand disabled:invisible">{s.back}</button>
-          <button onClick={() => (last ? close() : setI(i + 1))}
-            className="rounded-lg bg-brand px-5 py-2 font-semibold text-white hover:bg-brand-dark">{last ? s.done : s.next}</button>
+          <span className="text-[12px] tabular-nums text-muted">{s.stepOf(i + 1, steps.length)}</span>
+          <button onClick={() => setI(i - 1)} disabled={i === 0} className="btn-dark px-4 py-2 disabled:invisible">{s.back}</button>
+          <button onClick={() => (last ? close() : setI(i + 1))} className="btn-white px-5 py-2">{last ? s.done : s.next}</button>
         </div>
       </div>
     </div>
