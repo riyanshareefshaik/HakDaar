@@ -16,7 +16,7 @@ export function Avatar({ name, size = 'size-8' }) {
  * Same header as the landing page: round white logo and wordmark, dark pills for language and account.
  * (Chat and ledger are both on screen, and Memories / Alerts live in the account panel, so no nav is needed.)
  */
-export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount }) {
+export default function Header({ s, language, onLanguage, worker, alertCount = 0, onAccount, showHome = false }) {
   return (
     <header className="relative z-20 shrink-0 px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="mx-auto flex max-w-[1400px] items-center gap-3 sm:gap-5">
@@ -28,12 +28,12 @@ export default function Header({ s, language, onLanguage, worker, alertCount = 0
         <span className="font-display text-xl text-white">HakDaar</span>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Always a visible way back to the landing page (the logo links there too) */}
-          <a href="/landing/" title={s.home}
+          {/* A visible way back to the landing page on the sign-in screens (the logo links there too) */}
+          {showHome && <a href="/landing/" title={s.home}
             className="flex h-11 items-center gap-1.5 rounded-full border border-line-strong bg-pill px-3.5 text-[14.5px] font-medium text-fg2 transition hover:bg-pill-hover hover:text-white">
             <ArrowLeft className="size-4" />
             <span className="hidden min-[480px]:inline">{s.home}</span>
-          </a>
+          </a>}
           {onLanguage && <LanguageMenu language={language} onChange={onLanguage} />}
           {worker && (
             <button onClick={onAccount} title={s.account}

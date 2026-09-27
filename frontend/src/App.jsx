@@ -325,7 +325,7 @@ export default function App() {
         </video>
         <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
         <div className="relative z-10 flex h-full flex-col">
-          <Header s={s} language={uiLang} onLanguage={setLang} />
+          <Header s={s} language={uiLang} onLanguage={setLang} showHome />
           {degraded}
           <div className="flex-1 overflow-y-auto scroll-thin">
             <Login onLogin={login} lang={uiLang} initialMode={entry.mode} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
