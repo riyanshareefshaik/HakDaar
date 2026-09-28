@@ -104,6 +104,32 @@ Keep that last command running, and stop the Mac from sleeping (System Settings 
 
 ---
 
+## Website on Vercel + backend always on (no domain needed)
+
+Vercel only hosts the website. For phones to work at any time, the backend runs on a small cloud
+server (Option A), and Vercel points at it once, permanently.
+
+1. Create an Ubuntu 24.04 server with **4 GB RAM**. Examples:
+   - DigitalOcean (the GitHub Student Pack gives $200 credit)
+   - Hetzner CX22
+   - Oracle Cloud Always Free (ARM)
+
+   Note its IP, e.g. `203.0.113.7`.
+2. You get a free HTTPS name for it from sslip.io. Replace the dots with dashes: `203-0-113-7.sslip.io`.
+3. On the server, follow Option A step 2. In `.env`, use:
+   ```
+   SITE_ADDRESS=203-0-113-7.sslip.io
+   CORS_ORIGINS=https://hakdaar.vercel.app
+   ```
+4. Check `https://203-0-113-7.sslip.io/api/health` shows `"status":"ok"`.
+5. In Vercel, go to Settings → Environment Variables. Set `VITE_API_URL=https://203-0-113-7.sslip.io/api`, then redeploy.
+
+This address never changes, so you won't need to update Vercel again. Your Mac can be off. Later you
+can use `api.hakdaar.me` instead: add an A record for `api` pointing at the server IP, then set
+`SITE_ADDRESS=api.hakdaar.me` and `VITE_API_URL=https://api.hakdaar.me/api`.
+
+---
+
 ## Checks after deploying
 
 - `https://hakdaar.me` opens the landing page.
