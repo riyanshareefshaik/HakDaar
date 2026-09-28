@@ -73,6 +73,9 @@ def totals(ledger: list[dict]) -> dict:
         "amount_earned": sum(r["amount_earned"] or 0 for r in ledger),
         "amount_paid": sum(r["amount_paid"] for r in ledger),
         "amount_owed": sum(r["amount_owed"] or 0 for r in ledger),
+        # Paid more than earned (an advance for future work, or a mistake). Kept per employer, so
+        # extra from one employer never hides money another still owes.
+        "amount_advance": sum(r.get("advance") or 0 for r in ledger),
     }
 
 

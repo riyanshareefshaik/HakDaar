@@ -464,11 +464,16 @@ function Wallet({ s, totals, onClick }) {
   const earned = useCountUp(totals.amount_earned)
   const paid = useCountUp(totals.amount_paid)
   const owed = useCountUp(totals.amount_owed)
+  const extra = useCountUp(totals.amount_advance || 0)
   const [eHelp, pHelp, oHelp] = s.howCalcLines.map(([, v]) => v)
+  // Nothing owed but paid more than earned: show the extra instead of a bare ₹0.
+  const paidExtra = !(totals.amount_owed > 0) && totals.amount_advance > 0
   const items = [
     [s.wallet.earned, earned, eHelp, 'text-white'],
     [s.wallet.paid, paid, pHelp, 'text-white'],
-    [s.wallet.owed, owed, oHelp, totals.amount_owed > 0 ? 'text-owed' : 'text-ok'],
+    paidExtra
+      ? [s.wallet.extra, extra, s.wallet.extraHelp, 'text-warn']
+      : [s.wallet.owed, owed, oHelp, totals.amount_owed > 0 ? 'text-owed' : 'text-ok'],
   ]
   return (
     <div className="grid w-full grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-card sm:w-auto">

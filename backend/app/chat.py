@@ -245,7 +245,8 @@ def ledger_text(current_ledger: list[dict]) -> str:
                 f"days worked {r['days_worked']}, earned {ledger.format_inr(r['amount_earned'])}, "
                 f"paid {ledger.format_inr(r['amount_paid'])}, owed {ledger.format_inr(r['amount_owed'])}")
         if r["advance"]:
-            line += f" (advance of {ledger.format_inr(r['advance'])} already given)"
+            line += (f". PAID EXTRA: {r['employer_name']} has paid {ledger.format_inr(r['advance'])} MORE than the "
+                     f"worker earned")
         lines.append(line)
     return "\n".join(lines)
 
@@ -304,6 +305,33 @@ def invented_amounts(reply: str, *sources: str) -> set[int]:
 NO_MATHS = ("Your previous draft stated rupee amounts that are not in LEDGER, NOTED THIS TURN or ALERTS "
             "({amounts}). Do not calculate anything. Rewrite the reply using only amounts that appear there. "
             "If an amount is not in LEDGER, do not state it: ask the worker for the missing detail instead.")
+
+
+EXTRA_NOTE = {
+    "en": "Note: {emp} has paid you {amt} more than you have earned so far. It may be an advance for future work, "
+          "or a mistake, so please check with them.",
+    "te": "గమనిక: {emp} మీరు ఇప్పటివరకు సంపాదించిన దానికంటే {amt} ఎక్కువ ఇచ్చారు. ఇది ముందు పనికి అడ్వాన్స్ "
+          "కావచ్చు, లేదా పొరపాటు కావచ్చు. ఒకసారి వారితో మాట్లాడండి.",
+    "hi": "ध्यान दें: {emp} ने आपकी अब तक की कमाई से {amt} ज़्यादा दिए हैं। यह आगे के काम का एडवांस हो सकता है, "
+          "या गलती, इसलिए एक बार उनसे बात कर लें।",
+}
+
+
+def extra_payment_notes(reply: str, current_ledger: list[dict], focus: set[str], language: str) -> str:
+    """If an employer has paid more than was earned and the reply didn't say so, say it ourselves,
+    with the exact figure from the ledger, so an overpayment is never silently called 'fully paid'."""
+    notes = []
+    said = numbers_in(reply)
+    for r in current_ledger:
+        if not (r.get("advance") or 0) > 0 or r["advance"] in said:
+            continue
+        # Facts about this employer this turn, or a money reply to a question ("how much am I owed?").
+        # A plain "hello" reply gets no note.
+        about_it = r["employer_name"] in focus if focus else (said or r["employer_name"].lower() in reply.lower())
+        if about_it:
+            notes.append(EXTRA_NOTE.get(language, EXTRA_NOTE["en"]).format(
+                emp=r["employer_name"], amt=ledger.format_inr(r["advance"])))
+    return " ".join([reply, *notes]) if notes else reply
 
 
 def fallback_reply(stored: list[dict], alerts: list[dict]) -> str:
@@ -441,6 +469,7 @@ async def handle_message(worker: dict, message: str, on_recorded=None) -> dict:
     except llm.LLMUnavailable as e:
         warnings.append(str(e))
         reply = fallback_reply(stored, alerts)
+    reply = extra_payment_notes(reply, current_ledger, touched, worker["language"])
     db.add_message(worker_id, "assistant", reply)
 
     return {

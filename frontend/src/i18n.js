@@ -50,7 +50,7 @@ const S = {
       ['Remember', 'It remembers promises, work days and payments.'],
       ['Protect', 'It shows exactly what you are owed and warns you about bad employers.'],
     ],
-    wallet: { earned: 'Earned', paid: 'Paid', owed: 'Owed to you' },
+    wallet: { earned: 'Earned', paid: 'Paid', owed: 'Owed to you', extra: 'Paid extra', extraHelp: 'Your employer paid you more than you have earned so far. It may be an advance for future work, or a mistake to check with them.' },
   },
   te: {
     tagline: 'మీ పని. మీ కూలి. గుర్తుంటుంది.',
@@ -96,7 +96,7 @@ const S = {
       ['గుర్తుంచుకుంటుంది', 'ఒప్పందాలు, పని రోజులు, చెల్లింపులు గుర్తుంచుకుంటుంది.'],
       ['రక్షిస్తుంది', 'ఎంత బాకీ ఉందో సరిగ్గా చూపిస్తుంది, చెడ్డ యజమానుల గురించి హెచ్చరిస్తుంది.'],
     ],
-    wallet: { earned: 'సంపాదన', paid: 'అందింది', owed: 'మీకు రావాలి' },
+    wallet: { earned: 'సంపాదన', paid: 'అందింది', owed: 'మీకు రావాలి', extra: 'అదనంగా అందింది', extraHelp: 'మీరు సంపాదించిన దానికంటే ఎక్కువ అందింది. ఇది ముందు పనికి అడ్వాన్స్ కావచ్చు, లేదా పొరపాటు కావచ్చు.' },
   },
   hi: {
     tagline: 'आपका काम. आपकी मज़दूरी. याद रखी गई.',
@@ -142,7 +142,7 @@ const S = {
       ['याद रखे', 'वादे, काम के दिन और भुगतान याद रखता है।'],
       ['बचाए', 'ठीक-ठीक बताता है कितना बाकी है और बुरे मालिकों से सावधान करता है।'],
     ],
-    wallet: { earned: 'कमाई', paid: 'मिला', owed: 'आपका बाकी' },
+    wallet: { earned: 'कमाई', paid: 'मिला', owed: 'आपका बाकी', extra: 'ज़्यादा मिला', extraHelp: 'आपको कमाई से ज़्यादा पैसा मिला है। यह आगे के काम का एडवांस हो सकता है, या गलती।' },
   },
 }
 

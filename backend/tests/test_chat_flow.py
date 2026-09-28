@@ -370,7 +370,7 @@ def test_facts_without_employer_name_still_count(client, fake):
             message="Rakesh gave me 2000")
     assert [row["employer_name"] for row in r["ledger"]] == ["Rakesh"]
     totals = client.get(f"/workers/{w}/ledger").json()["totals"]
-    assert totals == {"amount_earned": 5000, "amount_paid": 2000, "amount_owed": 3000}
+    assert totals == {"amount_earned": 5000, "amount_paid": 2000, "amount_owed": 3000, "amount_advance": 0}
     # The placeholder never becomes a shared "employer" with a reputation.
     assert client.get("/employers/Employer (name not given)/reputation").json()["stats"]["workers_reporting_problems"] == 0
 
@@ -407,7 +407,7 @@ def test_streamed_chat_sends_ledger_before_the_reply(client, fake):
     assert r.status_code == 200
     parts = [json.loads(line) for line in r.text.splitlines()]
     assert [p["stage"] for p in parts] == ["recorded", "done"]
-    assert parts[0]["ledger"]["totals"] == {"amount_earned": 50000, "amount_paid": 0, "amount_owed": 50000}
+    assert parts[0]["ledger"]["totals"] == {"amount_earned": 50000, "amount_paid": 0, "amount_owed": 50000, "amount_advance": 0}
     assert parts[0]["extracted_events"][0]["days"] == 5 and parts[1]["reply"] == "reply"
 
 
@@ -441,3 +441,31 @@ def test_public_mode_only_the_signed_in_worker_sees_their_data(client, fake, mon
     assert client.get(f"/workers/{other}/ledger", headers=forged).status_code == 401
     fake.next_events = [ExtractedEvent(type="work_day", employer_name="Rakesh", days=2)]
     assert client.post("/chat", json={"worker_id": w, "message": "2 days"}, headers=h).status_code == 200
+
+
+def test_overpayment_is_always_mentioned(client, fake):
+    """Paid ₹1,800 for ₹1,000 of work: the wallet and the reply must both say ₹800 extra."""
+    w = client.post("/workers", json={"name": "Uday", "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="promise", employer_name="Rakesh", amount=200))
+    say(client, fake, w, ExtractedEvent(type="work_day", days=5))
+    r = say(client, fake, w, ExtractedEvent(type="payment", amount=1800), message="he gave me 1800")
+    assert "PAID EXTRA" in fake.replies[-1]["ledger_text"] and "₹800" in fake.replies[-1]["ledger_text"]
+    assert "₹800 more than you have earned" in r["reply"]            # the fake AI said nothing about it
+    totals = client.get(f"/workers/{w}/ledger").json()["totals"]
+    assert totals == {"amount_earned": 1000, "amount_paid": 1800, "amount_owed": 0, "amount_advance": 800}
+
+    fake.next_events = []
+    r = client.post("/chat", json={"worker_id": w, "message": "hello"}).json()
+    assert r["reply"] == "reply"                                      # no nagging on small talk
+
+
+def test_overpayment_note_in_workers_language(client, fake, monkeypatch):
+    w = client.post("/workers", json={"name": "Uday", "language": "te"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="promise", employer_name="Rakesh", amount=200))
+    say(client, fake, w, ExtractedEvent(type="work_day", days=5))
+
+    async def says_amounts(**kw):
+        return "మీకు ₹1,000 అందింది."
+    monkeypatch.setattr(llm, "write_reply", says_amounts)
+    r = say(client, fake, w, ExtractedEvent(type="payment", amount=1800))
+    assert "₹800 ఎక్కువ" in r["reply"]

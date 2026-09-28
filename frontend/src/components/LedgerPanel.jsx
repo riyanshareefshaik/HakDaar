@@ -66,10 +66,12 @@ function EmployerRow({ r, s, onUndo }) {
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold text-white">{r.employer_name}</p>
-          <p className="eyebrow mt-0.5">{unknown ? s.rateUnknown : isOwed ? s.owed : r.advance ? `${s.advance} ${inr(r.advance)}` : s.allPaid}</p>
+          <p className="eyebrow mt-0.5">{unknown ? s.rateUnknown : isOwed ? s.owed : r.advance ? `${s.wallet.extra} ${inr(r.advance)}` : s.allPaid}</p>
         </div>
         {!unknown && (
-          <span className={`font-display text-[32px] leading-none tabular-nums ${isOwed ? 'text-owed' : 'text-ok'}`}>{inr(isOwed ? owed : 0)}</span>
+          <span className={`font-display text-[32px] leading-none tabular-nums ${isOwed ? 'text-owed' : r.advance ? 'text-warn' : 'text-ok'}`}>
+            {isOwed ? inr(owed) : r.advance ? `+${inr(r.advance)}` : inr(0)}
+          </span>
         )}
       </header>
 

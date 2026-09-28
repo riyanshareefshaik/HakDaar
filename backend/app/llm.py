@@ -330,6 +330,9 @@ STRICT RULES ABOUT NUMBERS:
 
 WHAT TO DO:
 - Confirm what you noted from their message (from NOTED THIS TURN) in one short line.
+- If LEDGER says PAID EXTRA for an employer, the worker received more than they earned from them. Say that
+  exact extra amount clearly (it may be an advance for future work, or a mistake to check with the employer).
+  Never just call it "fully paid".
 - If money is owed, say the exact amount clearly and suggest one practical, gentle next step
   (ask the employer politely with the dates and amount, keep a record, or contact the local labour office if they refuse).
 - If ALERTS mention other workers' reports about an employer, warn gently without naming any other worker.
