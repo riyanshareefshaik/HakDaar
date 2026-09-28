@@ -22,6 +22,7 @@ const DOCS = {
       ['What you agree to', [
         'Enter information that is true to the best of your knowledge.',
         'Do not use HakDaar to harass, threaten or defame anyone. Warnings about employers are shown only as anonymous counts from other workers.',
+        'Do not create extra or fake accounts, or report payments that did not happen. A single report is always shown as unverified, and a warning appears only when several different workers report the same employer.',
         'Do not try to access other people\'s accounts or disrupt the service.',
       ]],
       ['Accuracy and availability', [

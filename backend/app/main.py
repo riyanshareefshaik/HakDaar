@@ -150,8 +150,25 @@ async def create_worker(body: WorkerIn):
     return w
 
 
+# One person shouldn't be able to make many accounts (e.g. to post fake reports about an employer).
+# In public mode, allow a few new accounts per network per day. In memory, like the PIN-reset limit.
+_signups: dict[str, list[float]] = {}
+SIGNUPS_PER_DAY = 5
+
+
+def _signup_allowed(ip: str) -> bool:
+    import time
+    now = time.time()
+    recent = [t for t in _signups.get(ip, []) if now - t < 24 * 3600]
+    _signups[ip] = recent
+    if len(recent) >= SIGNUPS_PER_DAY:
+        return False
+    recent.append(now)
+    return True
+
+
 @app.post("/auth/register", status_code=201)
-async def register(body: RegisterIn):
+async def register(body: RegisterIn, request: Request):
     """Create an account with a phone number and a 4-digit PIN (simple enough for any phone user).
     Note: hackathon-grade identification, not production authentication."""
     phone = _norm_phone(body.phone)
@@ -165,6 +182,8 @@ async def register(body: RegisterIn):
         raise HTTPException(422, "Choose a security question and write its answer.")
     if db.find_by_phone(phone):
         raise HTTPException(409, "This phone number already has an account. Please log in.")
+    if settings.public_mode and not _signup_allowed(request.client.host if request.client else "unknown"):
+        raise HTTPException(429, "Too many new accounts from this network today. Please try again tomorrow.")
     w = db.create_worker(body.name.strip(), body.language, phone, body.pin,
                          recovery_question=body.recovery_question, recovery_answer=body.recovery_answer,
                          terms_accepted=True)
@@ -401,7 +420,9 @@ async def employer_reputation(name: str):
         summary = await memory.reflect(
             memory.REPUTATION_BANK,
             f"How does {employer} treat workers' wages? Have workers reported short or late payments, "
-            f"or were they paid fully and on time? Answer in 2-3 short sentences.",
+            f"or were they paid fully and on time? Answer in 2-3 short sentences. These are unverified "
+            f"reports from workers: say how many workers reported what, mention anyone who was paid "
+            f"in full, and do not call the employer dishonest.",
         )
     except memory.MemoryUnavailable as e:
         error = str(e)

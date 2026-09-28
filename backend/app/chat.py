@@ -130,6 +130,11 @@ def to_ledger_events(extracted: list[llm.ExtractedEvent], worker_id: str,
 
 # ---------------------------------------------------------------- alerts & reputation
 
+# How many different workers must report a problem before HakDaar calls it a warning.
+# A single report could be a mistake or a fake account, so on its own it is shown as unverified.
+WARN_AFTER_REPORTS = 2
+
+
 def reputation_alert(employer: str, worker_id: str) -> dict | None:
     if employer == UNNAMED:
         return None
@@ -143,12 +148,24 @@ def reputation_alert(employer: str, worker_id: str) -> dict | None:
     if stats["late_payment"]:
         what.append("late")
     kind = " or ".join(what) if what else "unfair"
+    if n >= WARN_AFTER_REPORTS:
+        severity = "warning"
+        message = f"{n} other workers reported {kind} payment from {employer}."
+    else:
+        severity = "caution"
+        message = (f"1 other worker reported {kind} payment from {employer}. This is a single, unverified "
+                   f"report, so check with others before deciding.")
+    ok = stats["paid_ok"]
+    if ok:
+        # Show the other side too, so an employer isn't judged on complaints alone.
+        message += f" {ok} worker{'s' if ok != 1 else ''} said they were paid in full."
     return {
         "type": "employer_reputation",
-        "severity": "warning",
+        "severity": severity,
         "employer_name": employer,
         "count": n,
-        "message": f"{n} other worker{'s' if n != 1 else ''} reported {kind} payment from {employer}.",
+        "paid_ok": ok,
+        "message": message,
     }
 
 

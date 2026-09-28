@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, ChevronDown, CircleAlert, Gift, Loader2,
+  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, ChevronDown, CircleAlert, CircleHelp, Gift, Loader2,
   MessageSquareQuote, Undo2,
 } from 'lucide-react'
 import { api, inr } from '../api'
@@ -251,8 +251,11 @@ function ReputationAlert({ a, s }) {
   }
   return (
     <li className="card p-4 animate-rise">
-      <p className="flex items-start gap-2.5 text-white">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" /> <span>{a.message}</span>
+      <p className={`flex items-start gap-2.5 ${a.severity === 'warning' ? 'text-white' : 'text-fg2'}`}>
+        {a.severity === 'warning'
+          ? <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
+          : <CircleHelp className="mt-0.5 size-4 shrink-0 text-muted" />}
+        <span>{a.message}</span>
       </p>
       {!state.summary && (
         <button onClick={ask} disabled={state.loading} className="btn-dark mt-3 px-4 py-2 text-sm">

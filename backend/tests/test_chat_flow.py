@@ -482,3 +482,41 @@ def test_vercel_deployment_addresses_are_allowed(client):
         assert r.status_code == 200 and r.headers.get("access-control-allow-origin") == ok, ok
     for bad in ["https://evil.example.com", "https://hakdaar.vercel.app.evil.com", "http://hakdaar.vercel.app"]:
         assert preflight(bad).headers.get("access-control-allow-origin") is None, bad
+
+
+def _short_paid_worker(client, fake, name, employer="Rakesh Builders"):
+    w = client.post("/workers", json={"name": name, "language": "en"}).json()["id"]
+    say(client, fake, w, ExtractedEvent(type="promise", employer_name=employer, amount=800))
+    say(client, fake, w, ExtractedEvent(type="work_day", days=5))
+    say(client, fake, w, ExtractedEvent(type="payment", amount=1000))
+    return w
+
+
+def test_one_report_is_unverified_two_is_a_warning(client, fake):
+    """A single (possibly fake) account can't brand an employer; the other side is shown too."""
+    _short_paid_worker(client, fake, "A")
+    new = client.post("/workers", json={"name": "New", "language": "en"}).json()["id"]
+    r = say(client, fake, new, ExtractedEvent(type="promise", employer_name="Rakesh Builders", amount=700))
+    rep = [a for a in r["alerts"] if a["type"] == "employer_reputation"][0]
+    assert rep["severity"] == "caution" and "single, unverified report" in rep["message"]
+
+    _short_paid_worker(client, fake, "B")
+    ok = client.post("/workers", json={"name": "C", "language": "en"}).json()["id"]
+    say(client, fake, ok, ExtractedEvent(type="promise", employer_name="Rakesh Builders", amount=800))
+    say(client, fake, ok, ExtractedEvent(type="work_day", days=2))
+    say(client, fake, ok, ExtractedEvent(type="payment", amount=1600))
+    rep = [a for a in client.get(f"/workers/{new}/alerts").json() if a["type"] == "employer_reputation"][0]
+    assert rep["severity"] == "warning" and rep["count"] == 2
+    assert "2 other workers reported short payment" in rep["message"]
+    assert "1 worker said they were paid in full" in rep["message"]
+
+
+def test_signups_are_limited_per_network_in_public_mode(client, fake, monkeypatch):
+    from app import main as main_mod
+    from app.config import settings
+    monkeypatch.setattr(settings, "public_mode", True)
+    monkeypatch.setattr(main_mod, "_signups", {})
+    reg = {"name": "X", "pin": "1234", "pin_confirm": "1234", "language": "en",
+           "recovery_question": 1, "recovery_answer": "hyderabad", "accept_terms": True}
+    codes = [client.post("/auth/register", json={**reg, "phone": f"98000000{i:02d}"}).status_code for i in range(7)]
+    assert codes == [201] * 5 + [429, 429]

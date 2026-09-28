@@ -11,7 +11,7 @@ export const STEPS = {
   ledger: { title: 'Every entry is visible, and can be undone', body: 'Workers can check each rupee: promised rate, days, payments.', speed: 1 },
   memory: { title: 'Hindsight memory learns from every chat', body: 'retain and recall: HakDaar remembers promises, dates and problems across conversations.', speed: 1 },
   light: { title: 'Light or dark, in My account', body: 'Big buttons, read-aloud and voice input for workers who find reading hard.', speed: 1 },
-  community: { title: 'Workers protect each other, anonymously', body: 'A second worker mentions the same employer. HakDaar warns her from what it learned in the first worker’s chats, summarised by Hindsight reflect. No names are shared.', speed: 1.6 },
+  community: { title: 'Workers protect each other, anonymously', body: 'A second worker mentions the same employer and sees the first worker’s report, summarised by Hindsight reflect. One report stays “unverified”; it becomes a warning only when several workers report it. No names are shared.', speed: 1.6 },
 }
 
 export const INTRO = { title: 'HakDaar', tagline: 'Your work. Your wages. Remembered.' }
