@@ -38,8 +38,9 @@ learned from real conversations.
 > **Accounts:** mobile number + 4-digit PIN (entered twice at sign-up, can be shown/hidden), a security
 > question for **free PIN recovery** (no paid SMS/OTP; answers are hashed, 5 wrong answers lock resets for
 > 15 minutes), and acceptance of the in-app **Terms of Use** and **Privacy Policy**. Sign-up returns to the
-> log-in screen rather than logging in automatically. PINs and answers are hashed with PBKDF2. This is
-> hackathon-grade identification, not production authentication: the API itself has no sessions or tokens.
+> log-in screen rather than logging in automatically. PINs and answers are hashed with PBKDF2. Logging in
+> returns a signed session token; on the hosted site (`PUBLIC_MODE=true`) every worker's data needs that
+> worker's token, and wrong PINs are limited to 5 per 15 minutes.
 
 | Service | URL |
 |---|---|
