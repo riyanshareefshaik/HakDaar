@@ -1,8 +1,10 @@
 #!/bin/bash
 # HakDaar: one-paste server setup. No SSH needed.
 #
-# Paste this whole file into the "User data" / "Initialization script" box when creating an
-# Ubuntu 24.04 server with 4 GB RAM (DigitalOcean: Advanced options → Add Initialization scripts).
+# Paste this whole file into the setup-script box when creating an Ubuntu 24.04 server with 4 GB RAM:
+#   DigitalOcean: Advanced options → Add Initialization scripts
+#   Google Cloud: Advanced options → Management → Automation → Startup script
+#   Azure: Advanced → Custom data
 # Change only the two lines below. About 10 minutes after the server starts, HakDaar's backend
 # answers at  https://<server-ip-with-dashes>.sslip.io/api/health
 # Progress log on the server: /var/log/hakdaar-setup.log
@@ -10,6 +12,10 @@ set -euo pipefail
 
 GROQ_API_KEY="PASTE_YOUR_GROQ_KEY_HERE"      # gsk_...
 WEBSITE="https://hakdaar.vercel.app"          # where the website is hosted
+
+# Some providers (e.g. Google Cloud startup scripts) run this on every boot: set up only once.
+# Docker restarts HakDaar by itself after a reboot.
+[ -d /opt/HakDaar ] && exit 0
 
 exec > /var/log/hakdaar-setup.log 2>&1
 echo "== HakDaar setup started $(date)"
