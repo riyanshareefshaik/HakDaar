@@ -469,3 +469,16 @@ def test_overpayment_note_in_workers_language(client, fake, monkeypatch):
     monkeypatch.setattr(llm, "write_reply", says_amounts)
     r = say(client, fake, w, ExtractedEvent(type="payment", amount=1800))
     assert "₹800 ఎక్కువ" in r["reply"]
+
+
+def test_vercel_deployment_addresses_are_allowed(client):
+    """A friend opening a Vercel deployment link must not see 'offline' because of CORS."""
+    def preflight(origin):
+        return client.options("/health", headers={"Origin": origin, "Access-Control-Request-Method": "GET",
+                                                   "Access-Control-Request-Headers": "authorization"})
+    for ok in ["https://hakdaar.vercel.app", "https://hakdaar-abc123-riyans-projects.vercel.app",
+               "https://hakdaar-git-main-riyans-projects.vercel.app"]:
+        r = preflight(ok)
+        assert r.status_code == 200 and r.headers.get("access-control-allow-origin") == ok, ok
+    for bad in ["https://evil.example.com", "https://hakdaar.vercel.app.evil.com", "http://hakdaar.vercel.app"]:
+        assert preflight(bad).headers.get("access-control-allow-origin") is None, bad

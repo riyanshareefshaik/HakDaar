@@ -27,6 +27,10 @@ class Settings:
     cors_origins: list[str] = [
         o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
     ]
+    # Vercel also serves every deployment at its own address (hakdaar-abc123-team.vercel.app,
+    # hakdaar-git-main-team.vercel.app). Accept those too, so a shared deployment link isn't "offline".
+    # Sign-in uses a token, not cookies, so allowing these origins exposes no one's data.
+    cors_origin_regex: str = os.getenv("CORS_ORIGIN_REGEX", r"https://hakdaar(-[a-z0-9-]+)?\.vercel\.app")
 
     # Hosted on the internet: every worker's data needs that worker's session token, and the
     # demo-only routes (list all workers, create without a PIN, wipe everything) are switched off.
