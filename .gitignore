@@ -223,3 +223,6 @@ node_modules/
 frontend/dist/
 
 .session_secret
+
+# The Android app download served by the website
+!frontend/public/downloads/
