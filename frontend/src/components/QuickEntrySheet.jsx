@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Banknote, BriefcaseBusiness, CalendarCheck, Check, Delete, Minus, Plus, X } from 'lucide-react'
 
 const TITLES = { worked: 'qeWorkedTitle', paid: 'qePaidTitle', promise: 'qePromiseTitle' }
 const ICONS = { worked: CalendarCheck, paid: Banknote, promise: BriefcaseBusiness }
+// Mouse/trackpad devices (no on-screen keyboard to get in the way).
+const FINE_POINTER = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches
 
 /**
  * No-typing entry for people who can't read or write easily: pick the employer, then tap numbers.
@@ -41,9 +44,12 @@ export default function QuickEntrySheet({ s, mode, employers, defaultEmployer, o
     setAmount((v) => (v + k).replace(/^0+/, '').slice(0, 8))
   }
 
-  return (
+  // Rendered on <body>: inside the chat card, its frosted-glass (backdrop-filter) would trap this
+  // "full-screen" sheet in the card, and the phone keyboard would squeeze it until it got stuck.
+  return createPortal(
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 backdrop-blur-md sm:items-center animate-fade" onClick={onClose}>
-      <div className="w-full max-w-md rounded-t-[28px] border border-line bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-sheet sm:rounded-[28px]"
+      {/* Never taller than the visible screen (which shrinks when the phone keyboard opens); scrolls if needed. */}
+      <div className="scroll-thin max-h-[calc(100dvh-0.5rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border border-line bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-sheet sm:rounded-[28px]"
         onClick={(ev) => ev.stopPropagation()} role="dialog" aria-modal="true" aria-label={s[TITLES[mode]]}>
         <div className="mb-5 flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-full bg-white text-black"><Icon className="size-5" /></span>
@@ -66,7 +72,11 @@ export default function QuickEntrySheet({ s, mode, employers, defaultEmployer, o
           </button>
         </div>
         {typing && (
-          <input autoFocus value={employer} onChange={(ev) => setEmployer(ev.target.value)} placeholder={s.qeEmployerPh} className="field mb-3" />
+          // On phones, don't pop the keyboard up by itself: the worker taps the box when ready.
+          // "Done"/Enter closes the keyboard so the number pad below is usable again.
+          <input autoFocus={FINE_POINTER} value={employer} onChange={(ev) => setEmployer(ev.target.value)}
+            onKeyDown={(ev) => { if (ev.key === 'Enter') ev.currentTarget.blur() }} enterKeyHint="done"
+            autoComplete="off" placeholder={s.qeEmployerPh} className="field mb-3" />
         )}
 
         {mode === 'worked' ? (
@@ -108,6 +118,7 @@ export default function QuickEntrySheet({ s, mode, employers, defaultEmployer, o
           <Check className="size-5" /> {s.qeSave}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
