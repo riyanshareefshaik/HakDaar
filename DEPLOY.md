@@ -116,7 +116,10 @@ server (Option A), and Vercel points at it once, permanently.
 
    Note its IP, e.g. `203.0.113.7`.
 2. You get a free HTTPS name for it from sslip.io. Replace the dots with dashes: `203-0-113-7.sslip.io`.
-3. On the server, follow Option A step 2. In `.env`, use:
+3. **Easiest:** when creating the server, paste `scripts/cloud-init.sh` into the "Initialization script" /
+   "User data" box, with your Groq key filled in. The server sets itself up in about 10 minutes, and you
+   need no SSH. Skip to step 4.
+   Or, by hand: on the server, follow Option A step 2. In `.env`, use:
    ```
    SITE_ADDRESS=203-0-113-7.sslip.io
    CORS_ORIGINS=https://hakdaar.vercel.app
