@@ -1,0 +1,61 @@
+{
+  "source": "http://localhost:5173",
+  "duration": 109.196,
+  "segments": [
+    {
+      "id": "landing",
+      "start": 0,
+      "end": 8.363
+    },
+    {
+      "id": "signup",
+      "start": 8.363,
+      "end": 15.225
+    },
+    {
+      "id": "login",
+      "start": 15.225,
+      "end": 18.464
+    },
+    {
+      "id": "promise",
+      "start": 18.464,
+      "end": 27.464
+    },
+    {
+      "id": "work",
+      "start": 27.464,
+      "end": 34.658
+    },
+    {
+      "id": "payment",
+      "start": 34.658,
+      "end": 44.165
+    },
+    {
+      "id": "owed",
+      "start": 44.165,
+      "end": 52.646
+    },
+    {
+      "id": "ledger",
+      "start": 52.646,
+      "end": 57.755
+    },
+    {
+      "id": "memory",
+      "start": 57.755,
+      "end": 64.455
+    },
+    {
+      "id": "light",
+      "start": 64.455,
+      "end": 74.739
+    },
+    {
+      "id": "community",
+      "start": 74.739,
+      "end": 109.196
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "hakdaar-demo-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "record": "node record.mjs",
+    "studio": "remotion studio src/index.jsx",
+    "render": "remotion render src/index.jsx HakDaarDemo out/HakDaar-demo.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "playwright": "^1.55.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "remotion": "4.0.529"
+  }
+}
