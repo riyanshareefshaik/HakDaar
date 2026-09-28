@@ -7,7 +7,7 @@
 **Title:**
 My wage agent told a worker he was owed ₹50,000 when the answer was ₹0, so I split Hindsight memory from the ledger
 
-**URL:** your Dev.to article link
+**URL:** https://dev.to/riyanshareefshaik/employers-count-on-workers-forgetting-so-i-used-hindsight-3e0p
 
 ---
 

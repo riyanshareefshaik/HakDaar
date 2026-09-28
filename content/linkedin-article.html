@@ -34,7 +34,7 @@
     <li><b>Title:</b>
       <div class="field"><input id="title" readonly value="Employers count on workers forgetting, so I used Hindsight"><button data-copy="title">Copy title</button></div></li>
     <li>Paste your Dev.to link here so it's filled in at the end of the article:
-      <div class="field"><input id="devto" placeholder="https://dev.to/..."></div></li>
+      <div class="field"><input id="devto" value="https://dev.to/riyanshareefshaik/employers-count-on-workers-forgetting-so-i-used-hindsight-3e0p"></div></li>
     <li><b>Body:</b> <button id="copyBody">Copy article body</button> then click into the article body on LinkedIn and paste. Headings, bold, links and lists stay formatted.</li>
     <li>Where you see <b>[Upload image: …]</b>, delete that line and add the image with LinkedIn's image button (files are in <code>docs/article-images/</code>).</li>
     <li>Click <b>Next</b>. In "Tell your network what your article is about", write one line, type <code>@Code.in</code> and pick <b>CODE.IN</b> (E-Learning Providers). Then <b>Publish</b>.</li>
@@ -106,7 +106,7 @@ results = await asyncio.gather(memory.recall(bank, recall_query), _recall_rep(),
 <ol><li><strong>Split what an agent remembers from what it computes.</strong> Hindsight is excellent at holding a messy, evolving story. A ledger is excellent at arithmetic. Don't ask either to do the other's job.</li><li><strong>Recall before you retain.</strong> Running recall concurrently with retain, rather than after it, keeps the agent from "remembering" the message it is currently answering.</li><li><strong>Treat shared memory as a publishing decision.</strong> The moment one user's memory can affect another's, you need anonymity, thresholds and a fair summarizer. <code>reflect</code> gave me the summarizer; the thresholds had to be my own code.</li><li><strong>Guard the output, not just the input.</strong> Validating the model's JSON wasn't enough. Checking the final reply for numbers that exist nowhere in the ledger caught the failures that mattered most.</li><li><strong>Design for the least literate user first.</strong> Voice input, amounts read aloud as words in Telugu and Hindi ("one thousand eight hundred rupees", not "one-eight-zero-zero"), and big buttons made the product better for everyone, not just the users I designed them for.</li></ol>
 <p>If you're building anything where a user's history <em>is</em> the evidence (wages, rent, loans, medical follow-ups), give the agent a real memory. Start with the <a href="https://hindsight.vectorize.io/">Hindsight documentation</a> and the <a href="https://github.com/vectorize-io/hindsight">open-source Hindsight repository</a>. Keep the numbers somewhere the model can't touch.</p>
 <p>HakDaar's code is on GitHub: <a href="https://github.com/riyanshareefshaik/HakDaar">github.com/riyanshareefshaik/HakDaar</a>.</p>
-<p><em>Also published on Dev.to: <a href="DEVTO_URL">DEVTO_URL</a></em></p>
+<p><em>Also published on Dev.to: <a href="https://dev.to/riyanshareefshaik/employers-count-on-workers-forgetting-so-i-used-hindsight-3e0p">https://dev.to/riyanshareefshaik/employers-count-on-workers-forgetting-so-i-used-hindsight-3e0p</a></em></p>
 <p>Thanks to Code.in and the Vectorize team behind Hindsight.</p>
 <p>#AIAgents #AgentMemory #Hindsight #LLM</p>
 </article>
