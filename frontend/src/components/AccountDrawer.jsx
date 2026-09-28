@@ -68,10 +68,12 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
 function Connections({ s, health, onRecheck }) {
   const [busy, setBusy] = useState(false)
   if (!health) return null
+  // On the live site workers only need online / offline; addresses and model names are for developers.
+  const techDetails = !health.public_mode
   const rows = [
     { name: s.memoryService, ok: health.hindsight?.ok,
-      detail: health.hindsight?.ok ? `v${health.hindsight.version ?? '?'} · ${health.hindsight.url}` : health.hindsight?.error },
-    { name: s.aiService, ok: health.groq?.ok, detail: health.groq?.ok ? health.groq.model : health.groq?.error },
+      detail: !techDetails ? null : health.hindsight?.ok ? `v${health.hindsight.version ?? '?'} · ${health.hindsight.url}` : health.hindsight?.error },
+    { name: s.aiService, ok: health.groq?.ok, detail: !techDetails ? null : health.groq?.ok ? health.groq.model : health.groq?.error },
   ]
   return (
     <section className="border-t border-line px-5 py-4">
@@ -87,7 +89,7 @@ function Connections({ s, health, onRecheck }) {
             <span className={`size-2 shrink-0 rounded-full ${ok ? 'bg-ok' : 'bg-warn'}`} />
             <span className="min-w-0 flex-1">
               <span className="block text-sm text-white">{name}</span>
-              <span className="block truncate text-[12px] text-muted" title={detail}>{detail}</span>
+              {detail && <span className="block truncate text-[12px] text-muted" title={detail}>{detail}</span>}
             </span>
             <span className={`text-[12px] font-medium ${ok ? 'text-ok' : 'text-warn'}`}>{ok ? s.online : s.offline}</span>
           </li>

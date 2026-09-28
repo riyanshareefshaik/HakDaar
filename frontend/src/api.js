@@ -15,7 +15,9 @@ let token = null
 export const setToken = (t) => { token = t || null }
 const authHeader = () => (token ? { Authorization: `Bearer ${token}` } : {})
 
-const OFFLINE = 'Cannot reach the HakDaar server. Is the backend running on port 8000?'
+const OFFLINE = import.meta.env.DEV
+  ? 'Cannot reach the HakDaar server. Is the backend running on port 8000?'
+  : 'HakDaar is offline right now. Your records are safe. Please try again in a few minutes.'
 
 async function send(path, method, body) {
   try {
@@ -85,7 +87,7 @@ async function transcribe(blob, language) {
   try {
     res = await fetch(`${BASE}/transcribe`, { method: 'POST', body: form, headers: authHeader() })
   } catch {
-    throw new ApiError('Cannot reach the HakDaar server. Is the backend running on port 8000?', 0, 'backend')
+    throw new ApiError(OFFLINE, 0, 'backend')
   }
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new ApiError(data?.detail || `Voice input failed (${res.status})`, res.status, data?.service)

@@ -301,8 +301,12 @@ export default function App() {
         <div className="panel max-w-md p-8 text-center animate-rise">
           <WifiOff className="mx-auto mb-4 size-8 text-owed" />
           <p className="font-display text-2xl text-white">{s.backendDown}</p>
-          <p className="mt-2 text-fg2/80">{backendError}</p>
-          <code className="mt-4 block rounded-xl border border-line bg-card p-3 text-left text-sm text-fg2">./scripts/start-backend.sh</code>
+          <p className="mt-2 text-fg2/80">{s.backendDownHint}</p>
+          {/* Setup hints are for the developer running it locally, never for workers on the live site */}
+          {import.meta.env.DEV && <>
+            <p className="mt-3 text-sm text-muted">{backendError}</p>
+            <code className="mt-2 block rounded-xl border border-line bg-card p-3 text-left text-sm text-fg2">./scripts/start-backend.sh</code>
+          </>}
           <button onClick={boot} className="btn-white mt-5"><RefreshCw className="size-4" /> {s.retry}</button>
         </div>
       </div>
