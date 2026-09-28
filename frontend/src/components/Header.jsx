@@ -83,7 +83,7 @@ export function LanguageMenu({ language, onChange }) {
         <ChevronDown className={`size-4 opacity-70 transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <ul role="listbox" className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl bg-white p-1.5 text-[#2e2e2e] shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-fade">
+        <ul role="listbox" className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl bg-white p-1.5 text-ink shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-fade">
           {LANGS.map((l) => {
             const active = l.code === language
             return (

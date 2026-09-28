@@ -86,7 +86,7 @@ export default function QuickEntrySheet({ s, mode, employers, defaultEmployer, o
               <div className="mb-3 grid grid-cols-2 rounded-full bg-white p-1">
                 {[['day', s.qePerDay], ['fixed', s.qeTotal]].map(([k, label]) => (
                   <button key={k} onClick={() => setBasis(k)}
-                    className={`rounded-full py-2 text-[14.5px] font-medium transition ${basis === k ? 'bg-black text-white' : 'text-[#2e2e2e] opacity-60'}`}>{label}</button>
+                    className={`rounded-full py-2 text-[14.5px] font-medium transition ${basis === k ? 'bg-black text-white' : 'text-ink opacity-60'}`}>{label}</button>
                 ))}
               </div>
             )}

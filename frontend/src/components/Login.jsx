@@ -117,7 +117,7 @@ export default function Login({ onLogin, lang = 'en', onOpenLegal, onHowItWorks,
           <div className="mb-6 grid grid-cols-2 rounded-full bg-white p-1">
             {[['login', s.login], ['register', s.createAccount]].map(([m, label]) => (
               <button key={m} onClick={() => go(m)}
-                className={`rounded-full py-2 text-[14.5px] font-medium transition ${mode === m ? 'bg-black text-white' : 'text-[#2e2e2e] opacity-60 hover:opacity-90'}`}>
+                className={`rounded-full py-2 text-[14.5px] font-medium transition ${mode === m ? 'bg-black text-white' : 'text-ink opacity-60 hover:opacity-90'}`}>
                 {label}
               </button>
             ))}

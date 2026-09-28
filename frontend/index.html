@@ -12,6 +12,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://db.onlinewebfonts.com/c/8cb707a9b8a73f8a7403336b861c3074?family=BubbledotICG-FinePos" rel="stylesheet" />
     <title>HakDaar</title>
+    <script>
+      // Apply the saved theme (My account → Appearance) before the app paints, so there is no flash.
+      try {
+        if (localStorage.getItem('hakdaar.theme') === 'light') {
+          document.documentElement.dataset.theme = 'light'
+          document.querySelector('meta[name="theme-color"]').content = '#f3f2ef'
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

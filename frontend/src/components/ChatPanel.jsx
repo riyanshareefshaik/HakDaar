@@ -113,12 +113,12 @@ export default function ChatPanel({ s, worker, language, messages, sending, onSe
         ) : messages.length === 0 ? (
           /* First visit: a quiet greeting in the landing page's style instead of an empty screen */
           <div className="flex min-h-full flex-col items-center justify-center px-2 py-8 text-center animate-rise">
-            <span className="mb-5 inline-flex items-center rounded-full border border-line-strong bg-pill px-4 py-1.5 text-[13px] text-[#c4c2c3]">{s.tagline}</span>
+            <span className="mb-5 inline-flex items-center rounded-full border border-line-strong bg-pill px-4 py-1.5 text-[13px] text-fg2">{s.tagline}</span>
             <h2 className="font-display text-[clamp(34px,5.5vw,64px)] leading-[1.08] tracking-[-0.04em] text-white">
               <span className="block">{s.hello}</span>
               <span className="block">{worker.name}</span>
             </h2>
-            <p className="mx-auto mt-4 max-w-[46ch] text-[16.5px] leading-relaxed text-[#d0d0d0]/80">{s.emptyChatBody}</p>
+            <p className="mx-auto mt-4 max-w-[46ch] text-[16.5px] leading-relaxed text-fg2/80">{s.emptyChatBody}</p>
           </div>
         ) : (
           <ul className="mx-auto max-w-3xl space-y-5">

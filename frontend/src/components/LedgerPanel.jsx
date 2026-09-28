@@ -177,7 +177,7 @@ export function MemoriesCard({ s, recalled, learned, newIds, error, loading, lea
       <div className="mb-3 grid grid-cols-2 rounded-full bg-white p-1">
         {[['learned', `${s.allLearned} · ${learned.total}`], ['recalled', s.usedLastReply]].map(([k, label]) => (
           <button key={k} onClick={() => setView(k)}
-            className={`rounded-full px-2 py-1.5 text-[13.5px] font-medium transition ${view === k ? 'bg-black text-white' : 'text-[#2e2e2e] opacity-60 hover:opacity-90'}`}>
+            className={`rounded-full px-2 py-1.5 text-[13.5px] font-medium transition ${view === k ? 'bg-black text-white' : 'text-ink opacity-60 hover:opacity-90'}`}>
             {label}
           </button>
         ))}

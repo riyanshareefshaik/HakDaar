@@ -32,6 +32,14 @@ export default function App() {
   const [worker, setWorker] = useState(null)
   const [booted, setBooted] = useState(false)
   const [uiLang, setUiLang] = useState(() => readStored('hakdaar.lang') || 'te')
+  const [theme, setTheme] = useState(() => (readStored('hakdaar.theme') === 'light' ? 'light' : 'dark'))
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'light') root.dataset.theme = 'light'
+    else delete root.dataset.theme
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3f2ef' : '#000000')
+    writeStored('hakdaar.theme', theme === 'light' ? 'light' : null)
+  }, [theme])
 
   const [messages, setMessages] = useState([])
   const [ledger, setLedger] = useState(null)
@@ -442,7 +450,7 @@ export default function App() {
         s={s} open={drawer.open} section={drawer.section} onClose={() => setDrawer((d) => ({ ...d, open: false }))}
         worker={worker} alerts={alerts}
         memoryProps={{ recalled, learned, newIds, error: memoryError, loading: loadingWorker, learning, worker }}
-        onLogout={logout} onDelete={deleteAccount} onResetAll={resetAll}
+        onLogout={logout} onDelete={deleteAccount} onResetAll={resetAll} theme={theme} onTheme={setTheme}
         onOpenLegal={setLegalDoc}
         health={health} onRecheck={async () => { try { setHealth(await api.health()) } catch (e) { showToast(e.message, 'error') } }}
       />

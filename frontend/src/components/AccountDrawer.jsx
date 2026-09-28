@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, LogOut, Phone, RefreshCw, Trash2, X } from 'lucide-react'
+import { Loader2, LogOut, Moon, Phone, RefreshCw, Sun, Trash2, X } from 'lucide-react'
 import { Avatar } from './Header'
 import { AlertsCard, HowCalculated, MemoriesCard } from './LedgerPanel'
 
 /** Slide-over "My account": profile, what HakDaar has learned, employer warnings, connections, log out. */
-export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck, onOpenLegal }) {
+export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck, onOpenLegal, theme, onTheme }) {
   const [tab, setTab] = useState(section || 'memories')
   useEffect(() => { if (open && section) setTab(section) }, [open, section])
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
         <nav className="mx-5 mb-2 grid h-11 grid-cols-2 items-center rounded-full bg-white px-2" aria-label={s.account}>
           {[['memories', s.memories, memoryProps.learned.total], ['alerts', s.alerts, repCount]].map(([k, label, n]) => (
             <button key={k} onClick={() => setTab(k)}
-              className={`relative pb-2.5 pt-2 text-[14.5px] font-medium text-[#2e2e2e] transition ${tab === k ? 'dot-active opacity-100' : 'opacity-50 hover:opacity-75'}`}>
+              className={`relative pb-2.5 pt-2 text-[14.5px] font-medium text-ink transition ${tab === k ? 'dot-active opacity-100' : 'opacity-50 hover:opacity-75'}`}>
               {label}{n > 0 && <span className="ml-1 tabular-nums opacity-60">{n}</span>}
             </button>
           ))}
@@ -45,6 +45,7 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
           {tab === 'memories' ? <MemoriesCard s={s} {...memoryProps} /> : <AlertsCard s={s} alerts={alerts} loading={false} />}
         </div>
 
+        <Appearance s={s} theme={theme} onTheme={onTheme} />
         <HowCalculated s={s} />
         <Connections s={s} health={health} onRecheck={onRecheck} />
 
@@ -61,6 +62,23 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
         </div>
       </aside>
     </div>
+  )
+}
+
+/** Dark / light switch. Lives only here, in the signed-in account (the public landing page stays dark). */
+function Appearance({ s, theme, onTheme }) {
+  return (
+    <section className="flex items-center justify-between gap-3 border-t border-line px-5 py-4">
+      <h3 className="eyebrow">{s.appearance}</h3>
+      <div className="grid grid-cols-2 rounded-full bg-white p-1" role="radiogroup" aria-label={s.appearance}>
+        {[['dark', s.themeDark, Moon], ['light', s.themeLight, Sun]].map(([k, label, Icon]) => (
+          <button key={k} role="radio" aria-checked={theme === k} onClick={() => onTheme(k)}
+            className={`flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13.5px] font-medium transition ${theme === k ? 'bg-black text-white' : 'text-ink opacity-60 hover:opacity-90'}`}>
+            <Icon className="size-3.5" /> {label}
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
