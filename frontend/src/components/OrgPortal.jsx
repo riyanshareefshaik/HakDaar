@@ -30,30 +30,73 @@ function ErrorLine({ error }) {
 
 // ================================================================= sign in / sign up
 
+// Same format rules as the server (backend/app/validators.py), so mistakes show while typing.
+const GST_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+const gstinCheck = (g) => {
+  let total = 0
+  for (let i = 0; i < 14; i++) {
+    const v = GST_CHARS.indexOf(g[i]) * (i % 2 === 0 ? 1 : 2)
+    total += Math.floor(v / 36) + (v % 36)
+  }
+  return GST_CHARS[(36 - (total % 36)) % 36]
+}
+const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+const ID_RULES = {
+  gstin: { label: 'GSTIN', ph: '36ABCDE1234F1Z5', max: 15,
+    check: (v) => (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v) ? '15 characters: state code, PAN, entity number, Z, check'
+      : !PAN.test(v.slice(2, 12)) ? 'Characters 3–12 must be a PAN' : gstinCheck(v) !== v[14] ? 'Last character doesn’t match. Check for typing mistakes' : null) },
+  udyam: { label: 'Udyam (MSME)', ph: 'UDYAM-TS-02-0012345', max: 19,
+    check: (v) => (/^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/.test(v) ? null : 'Looks like UDYAM-TS-02-0012345') },
+  pan: { label: 'PAN', ph: 'ABCPE1234F', max: 10,
+    check: (v) => (PAN.test(v) && 'PCFHATBLJG'.includes(v[3]) ? null : '10 characters: 5 letters, 4 digits, 1 letter') },
+}
+const SUPPORT_REG = {
+  ngo: { label: 'NGO Darpan ID', ph: 'TS/2019/0123456', check: (v) => (/^[A-Z]{2}\/[0-9]{4}\/[0-9]{7}$/.test(v) ? null : 'Looks like TS/2019/0123456') },
+  union: { label: 'Trade union registration number', ph: 'e.g. TU/HYD/1234' },
+  labour_office: { label: 'Office code / order number', ph: 'e.g. ALC/HYD/05' },
+  legal_aid: { label: 'Registration number', ph: 'e.g. DLSA/HYD/102' },
+  other: { label: 'Registration number', ph: 'Society / trust registration number' },
+}
+const otherReg = (v) => (/^[A-Z0-9][A-Z0-9/\-. ]{2,39}$/.test(v) ? null : '3 to 40 letters, digits, / or -')
+
 export function OrgLogin({ onLogin, onBack, onOpenLegal }) {
   const [mode, setMode] = useState('login')
-  const [f, setF] = useState({ org_name: '', kind: 'employer', owner_name: '', phone: '', pin: '', pin_confirm: '', accept_terms: false })
+  const blank = { org_name: '', kind: 'employer', category: '', reg_type: 'gstin', reg_number: '', email: '', area: '', city: 'Hyderabad',
+    pincode: '', phone: '', pin: '', pin_confirm: '', accept_terms: false }
+  const [f, setF] = useState(blank)
+  const [options, setOptions] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  useEffect(() => { api.orgOptions().then(setOptions).catch(() => {}) }, [])
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+  const employer = f.kind === 'employer'
+  const regRule = employer ? ID_RULES[f.reg_type] : SUPPORT_REG[f.category] || SUPPORT_REG.other
+  const regValue = f.reg_number.trim().toUpperCase()
+  const regProblem = regValue && (regRule.check ? regRule.check(regValue) : otherReg(regValue))
+
+  const pickKind = (kind) => setF({ ...f, kind, category: '', reg_type: kind === 'employer' ? 'gstin' : 'registration', reg_number: '' })
+  const pickSupportType = (category) => setF({ ...f, category, reg_type: category === 'ngo' ? 'darpan' : 'registration', reg_number: '' })
 
   const submit = async (e) => {
     e.preventDefault()
-    setError(null); setBusy(true)
+    setError(null)
+    if (mode === 'register' && regProblem) return setError(`${regRule.label}: ${regProblem}.`)
+    setBusy(true)
     try {
       if (mode === 'login') {
         await onLogin({ phone: f.phone, pin: f.pin })
       } else {
-        await api.orgRegister(f)
-        setNotice('Organization created. Log in with your phone number and PIN.')
+        await api.orgRegister({ ...f, reg_number: regValue })
+        setNotice('Organization registered. Log in with your mobile number and PIN. HakDaar will verify your details.')
         setMode('login'); setF({ ...f, pin: '', pin_confirm: '' })
       }
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
+  const types = options?.[f.kind] || {}
   return (
-    <div className="mx-auto w-full max-w-[520px] px-4 py-8">
+    <div className="mx-auto w-full max-w-[560px] px-4 py-8">
       <button onClick={onBack} className="btn-ghost -ml-3 mb-4"><ArrowLeft className="size-4" /> Worker login</button>
       <h1 className="font-display text-4xl leading-tight text-white">HakDaar for organizations</h1>
       <p className="mt-2 text-fg2">For employers who record work and payments, and for groups that help workers get paid.</p>
@@ -72,7 +115,7 @@ export function OrgLogin({ onLogin, onBack, onOpenLegal }) {
             <>
               <div className="grid grid-cols-2 gap-2">
                 {[['employer', Building2, 'Employer', 'Record work & payments'], ['support', HeartHandshake, 'Support group', 'NGO, union, labour office']].map(([k, Icon, t, d]) => (
-                  <button type="button" key={k} onClick={() => setF({ ...f, kind: k })}
+                  <button type="button" key={k} onClick={() => pickKind(k)}
                     className={`rounded-2xl border p-3 text-left transition ${f.kind === k ? 'border-white bg-white text-black' : 'border-line bg-card text-fg2 hover:text-white'}`}>
                     <Icon className="mb-1.5 size-5" />
                     <span className="block font-semibold">{t}</span>
@@ -80,14 +123,61 @@ export function OrgLogin({ onLogin, onBack, onOpenLegal }) {
                   </button>
                 ))}
               </div>
-              <Field label={f.kind === 'employer' ? 'Company name (as workers know it)' : 'Organization name'}
-                hint={f.kind === 'employer' ? 'e.g. "Rakesh Builders, Kukatpally". Workers link their records to this name.' : null}>
-                <input className="field" value={f.org_name} onChange={set('org_name')} maxLength={80} required />
+
+              <p className="eyebrow pt-1">{employer ? 'Business details' : 'Organization details'}</p>
+              <Field label={employer ? 'Registered business name (as workers know it)' : 'Registered organization name'}
+                hint={employer ? 'e.g. "Rakesh Builders". Workers link their records to this name.' : null}>
+                <input className="field" value={f.org_name} onChange={set('org_name')} minLength={3} maxLength={80} required />
               </Field>
-              <Field label="Your name"><input className="field" value={f.owner_name} onChange={set('owner_name')} maxLength={60} required /></Field>
+              <Field label={employer ? 'Type of business' : 'Type of organization'}>
+                <select className="field" value={f.category} required
+                  onChange={(e) => (employer ? setF({ ...f, category: e.target.value }) : pickSupportType(e.target.value))}>
+                  <option value="" disabled>Choose…</option>
+                  {Object.entries(types).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+              </Field>
+
+              {employer ? (
+                <div>
+                  <span className="mb-1.5 block text-[14px] font-medium text-fg2">Government business ID</span>
+                  <div className="mb-2 grid grid-cols-3 gap-1 rounded-full bg-white p-1">
+                    {Object.entries(ID_RULES).map(([k, r]) => (
+                      <button type="button" key={k} onClick={() => setF({ ...f, reg_type: k, reg_number: '' })}
+                        className={`rounded-full py-1.5 text-[13.5px] font-medium transition ${f.reg_type === k ? 'bg-black text-white' : 'text-ink opacity-60 hover:opacity-90'}`}>{r.label}</button>
+                    ))}
+                  </div>
+                  <input className={`field font-mono uppercase tracking-wide ${regProblem ? 'field-error' : ''}`} value={f.reg_number}
+                    onChange={(e) => setF({ ...f, reg_number: e.target.value.toUpperCase() })} maxLength={regRule.max + 2}
+                    placeholder={regRule.ph} autoComplete="off" required />
+                  <span className={`mt-1 block text-[12px] ${regProblem ? 'text-owed' : 'text-muted'}`}>
+                    {regProblem || 'GSTIN if registered for GST; otherwise your Udyam (MSME) number or the business PAN. One organization per ID.'}
+                  </span>
+                </div>
+              ) : f.category && (
+                <Field label={regRule.label}>
+                  <input className={`field font-mono uppercase tracking-wide ${regProblem ? 'field-error' : ''}`} value={f.reg_number}
+                    onChange={(e) => setF({ ...f, reg_number: e.target.value.toUpperCase() })} maxLength={40}
+                    placeholder={regRule.ph} autoComplete="off" required />
+                  {regProblem && <span className="mt-1 block text-[12px] text-owed">{regProblem}</span>}
+                </Field>
+              )}
+
+              <Field label="Official email" hint="Used by HakDaar to verify your organization. One organization per email.">
+                <input className="field" type="email" value={f.email} onChange={set('email')} maxLength={120} placeholder="office@company.in" required />
+              </Field>
+              {employer && (
+                <Field label="Work-site area"><input className="field" value={f.area} onChange={set('area')} maxLength={80} placeholder="e.g. Kukatpally" required /></Field>
+              )}
+              <div className="grid grid-cols-[1fr_130px] gap-3">
+                <Field label="City"><input className="field" value={f.city} onChange={set('city')} maxLength={60} required /></Field>
+                <Field label="PIN code">
+                  <input className="field" inputMode="numeric" value={f.pincode} onChange={(e) => setF({ ...f, pincode: digits(e.target.value, 6) })} placeholder="500072" required />
+                </Field>
+              </div>
+              <p className="eyebrow pt-1">Login</p>
             </>
           )}
-          <Field label="Mobile number">
+          <Field label="Mobile number" hint={mode === 'register' ? 'You log in with this number. Add your team later from the Team tab.' : null}>
             <input className="field" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: digits(e.target.value, 10) })} placeholder="98765 43210" required />
           </Field>
           <Field label="4-digit PIN">
@@ -100,13 +190,13 @@ export function OrgLogin({ onLogin, onBack, onOpenLegal }) {
               </Field>
               <label className="flex items-start gap-2.5 text-sm text-fg2">
                 <input type="checkbox" checked={f.accept_terms} onChange={set('accept_terms')} className="mt-1 size-4 accent-white" />
-                <span>I accept the <button type="button" onClick={() => onOpenLegal('terms')} className="underline">Terms of Use</button> and{' '}
+                <span>I confirm these details are true, and I accept the <button type="button" onClick={() => onOpenLegal('terms')} className="underline">Terms of Use</button> and{' '}
                   <button type="button" onClick={() => onOpenLegal('privacy')} className="underline">Privacy Policy</button>.</span>
               </label>
             </>
           )}
           <button type="submit" disabled={busy} className="btn-white w-full py-3">
-            {busy && <Loader2 className="size-4 animate-spin" />} {mode === 'login' ? 'Log in' : 'Create organization'}
+            {busy && <Loader2 className="size-4 animate-spin" />} {mode === 'login' ? 'Log in' : 'Register organization'}
           </button>
         </form>
       </div>
@@ -137,7 +227,7 @@ export function OrgApp({ session, onLogout, showToast }) {
             {org.verified && <BadgeCheck className="size-4 shrink-0 text-ok" title="Verified by HakDaar" />}
           </p>
           <p className="truncate text-[12.5px] text-muted">
-            {employer ? 'Employer' : 'Support group'} · {member.name} ({ROLE_LABEL[member.role]}){!org.verified && ' · not verified yet'}
+            {employer ? 'Employer' : 'Support group'}{org.city ? ` · ${org.city}` : ''} · {member.role === 'owner' ? 'Owner' : `${member.name} (${ROLE_LABEL[member.role]})`}{!org.verified && ' · not verified yet'}
           </p>
         </div>
         <button onClick={onLogout} className="btn-dark px-4 py-2 text-sm"><LogOut className="size-4" /> <span className="hidden sm:inline">Log out</span></button>

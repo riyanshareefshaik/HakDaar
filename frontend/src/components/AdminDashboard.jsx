@@ -260,6 +260,8 @@ function Danger({ onResetDone, showToast }) {
   )
 }
 
+const REG_LABEL = { gstin: 'GSTIN', udyam: 'Udyam', pan: 'PAN', darpan: 'NGO Darpan', registration: 'Reg. no.' }
+
 function Orgs({ orgs, onChanged, showToast }) {
   const [busy, setBusy] = useState(null)
   const act = async (id, fn, done) => {
@@ -270,7 +272,7 @@ function Orgs({ orgs, onChanged, showToast }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted">
-        Verify an employer only after checking it really is that company (e.g. a call to the owner's number).
+        Formats are checked at sign-up. Before verifying, check the ID really belongs to them (links below) and call the owner's number.
         Verified employers get a badge and can publicly reply to reports.
       </p>
       <ul className="space-y-2">
@@ -284,8 +286,16 @@ function Orgs({ orgs, onChanged, showToast }) {
                   : <span className="rounded-full bg-pill px-2 py-0.5 text-[11.5px] text-fg2">Not verified</span>}
               </p>
               <p className="text-[13px] text-muted">
-                {o.kind === 'employer' ? 'Employer' : 'Support group'} · owner +91 {o.owner_phone || '—'} · {o.members} login(s) · {o.workers} worker(s) · since {date(o.created_at)}
+                {o.kind === 'employer' ? 'Employer' : 'Support group'}{o.category ? ` · ${o.category.replace('_', ' ')}` : ''} · owner +91 {o.owner_phone || '—'} · {o.members} login(s) · {o.workers} worker(s) · since {date(o.created_at)}
               </p>
+              {o.reg_number && (
+                <p className="mt-1 text-[13px] text-fg2">
+                  <span className="font-mono">{REG_LABEL[o.reg_type] || 'Reg.'} {o.reg_number}</span> · {o.email} · {[o.area, o.city, o.pincode].filter(Boolean).join(', ')}
+                  {o.reg_type === 'gstin' && <a href="https://services.gst.gov.in/services/searchtp" target="_blank" rel="noreferrer" className="ml-2 underline hover:text-white">check on GST portal</a>}
+                  {o.reg_type === 'udyam' && <a href="https://udyamregistration.gov.in/Udyam_Verify.aspx" target="_blank" rel="noreferrer" className="ml-2 underline hover:text-white">check Udyam</a>}
+                  {o.reg_type === 'darpan' && <a href="https://ngodarpan.gov.in/" target="_blank" rel="noreferrer" className="ml-2 underline hover:text-white">check NGO Darpan</a>}
+                </p>
+              )}
             </div>
             <button onClick={() => act(o.id, () => api.adminVerifyOrg(o.id, !o.verified), o.verified ? 'Verification removed.' : `${o.name} is verified.`)}
               disabled={busy === o.id} className={o.verified ? 'btn-dark px-3 py-1.5 text-sm' : 'btn-white px-3 py-1.5 text-sm'}>

@@ -153,6 +153,9 @@ def init_db() -> None:
         _add_column(conn, "events", "merged_into", "merged_into INTEGER")
         _add_column(conn, "events", "verified_org", "verified_org TEXT")
         _add_column(conn, "events", "dispute_reason", "dispute_reason TEXT")
+        # Organization registration details (checked at sign-up; verified by the admin).
+        for col in ("category", "reg_type", "reg_number", "email", "area", "city", "pincode"):
+            _add_column(conn, "organizations", col, f"{col} TEXT")
         conn.executescript("""
             CREATE INDEX IF NOT EXISTS idx_events_worker ON events (worker_id, status);
             CREATE INDEX IF NOT EXISTS idx_events_org ON events (org_id, status);
@@ -160,6 +163,9 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_reports_employer ON employer_reports (employer_name);
             CREATE INDEX IF NOT EXISTS idx_links_worker ON org_links (worker_id, status);
             CREATE INDEX IF NOT EXISTS idx_links_org ON org_links (org_id, status);
+            -- One organization per business/registration ID and per official email.
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_org_reg ON organizations (reg_type, reg_number);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_org_email ON organizations (lower(email));
         """)
 
 

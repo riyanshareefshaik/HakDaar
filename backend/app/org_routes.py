@@ -9,7 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from . import auth, chat, db, ledger, memory, orgs
+from . import auth, chat, db, ledger, memory, orgs, validators
 from .config import settings
 
 log = logging.getLogger("hakdaar.orgs")
@@ -64,19 +64,79 @@ def _active_worker(org: dict, worker_id: str) -> dict:
 
 
 def _public_org(org: dict) -> dict:
-    return {k: org[k] for k in ("id", "name", "kind", "verified", "created_at")} | {"verified": bool(org["verified"])}
+    keys = ("id", "name", "kind", "verified", "created_at", "category", "city")
+    return {k: org.get(k) for k in keys} | {"verified": bool(org["verified"])}
 
 
 # ---------------------------------------------------------------- sign up / log in
 
+EMPLOYER_CATEGORIES = {
+    "construction": "Construction contractor", "builder": "Builder / real-estate developer",
+    "factory": "Factory / manufacturing", "shop": "Shop / commercial establishment",
+    "hospitality": "Hotel / restaurant", "agriculture": "Agriculture / farm", "transport": "Transport / logistics",
+    "household": "Household employer", "other": "Other business",
+}
+SUPPORT_CATEGORIES = {
+    "ngo": "NGO (registered on NGO Darpan)", "union": "Trade union", "labour_office": "Government labour office",
+    "legal_aid": "Legal aid / law clinic", "other": "Other workers' group",
+}
+
+
 class OrgRegisterIn(BaseModel):
-    org_name: str = Field(min_length=2, max_length=80)
+    org_name: str = Field(min_length=3, max_length=80)
     kind: Literal["employer", "support"]
-    owner_name: str = Field(min_length=1, max_length=60)
+    category: str = Field(max_length=30)
+    # Employers: a GST, Udyam (MSME) or PAN number. Support groups: their registration number.
+    reg_type: Literal["gstin", "udyam", "pan", "darpan", "registration"]
+    reg_number: str = Field(max_length=40)
+    email: str = Field(max_length=120)
+    area: str | None = Field(default=None, max_length=80)
+    city: str = Field(min_length=2, max_length=60)
+    pincode: str = Field(max_length=6)
     phone: str = Field(max_length=20)
     pin: str = PIN
     pin_confirm: str = PIN
     accept_terms: bool = False
+
+
+def _registration_details(body: OrgRegisterIn) -> dict:
+    """Check every sign-up detail and return them cleaned, or raise a clear 422 / 409."""
+    if body.kind == "employer":
+        if body.category not in EMPLOYER_CATEGORIES:
+            raise HTTPException(422, "Choose what kind of business this is.")
+        if body.reg_type not in ("gstin", "udyam", "pan"):
+            raise HTTPException(422, "Choose GSTIN, Udyam or PAN.")
+        if not (body.area or "").strip():
+            raise HTTPException(422, "Enter the work-site area (e.g. Kukatpally).")
+    else:
+        if body.category not in SUPPORT_CATEGORIES:
+            raise HTTPException(422, "Choose what kind of organization this is.")
+        expected = "darpan" if body.category == "ngo" else "registration"
+        if body.reg_type != expected:
+            raise HTTPException(422, "Enter the registration number for this kind of organization.")
+    reg = validators.normalize_id(body.reg_number)
+    error = (validators.business_id_error(body.reg_type, reg) if body.kind == "employer"
+             else validators.support_reg_error(body.category, body.reg_number.strip().upper()))
+    if body.kind == "support":
+        reg = " ".join(body.reg_number.strip().upper().split())
+    email = body.email.strip().lower()
+    pincode = body.pincode.strip()
+    error = error or validators.email_error(email) or validators.pincode_error(pincode)
+    if error:
+        raise HTTPException(422, error)
+    if orgs.find_by_registration(body.reg_type, reg):
+        raise HTTPException(409, "An organization with this registration number already exists. "
+                                 "If it's yours, ask its owner to add you to the team.")
+    if orgs.find_by_email(email):
+        raise HTTPException(409, "This email is already used by another organization.")
+    return {"category": body.category, "reg_type": body.reg_type, "reg_number": reg, "email": email,
+            "area": (body.area or "").strip() or None, "city": body.city.strip(), "pincode": pincode}
+
+
+@router.get("/org/options")
+def org_options():
+    """Business / organization types for the sign-up form (one list, shared with the app)."""
+    return {"employer": EMPLOYER_CATEGORIES, "support": SUPPORT_CATEGORIES}
 
 
 @router.post("/org/register", status_code=201)
@@ -88,6 +148,7 @@ def org_register(body: OrgRegisterIn, request: Request):
         raise HTTPException(422, "The two PINs do not match.")
     if not body.accept_terms:
         raise HTTPException(422, "Please accept the Terms of Use and Privacy Policy.")
+    details = _registration_details(body)
     if orgs.member_by_phone(phone):
         raise HTTPException(409, "This phone number already has an organization login. Please log in.")
     if body.kind == "employer" and orgs.find_employer_org(body.org_name):
@@ -97,7 +158,7 @@ def org_register(body: OrgRegisterIn, request: Request):
     if settings.public_mode and len(_recent(_signups, ip, 24 * 3600)) >= 3:
         raise HTTPException(429, "Too many new organizations from this network today. Please try again tomorrow.")
     _signups.setdefault(ip, []).append(time.time())
-    org, member = orgs.create_org(body.org_name, body.kind, body.owner_name, phone, body.pin)
+    org, member = orgs.create_org(body.org_name, body.kind, phone, body.pin, details)
     return {"org": _public_org(org), "member": member}
 
 

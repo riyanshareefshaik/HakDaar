@@ -268,7 +268,17 @@ See [DEPLOY.md](DEPLOY.md) for hakdaar.me, either on a small server or from a la
 ## Organizations: employers and support groups
 
 Organizations log in separately at `/app?portal=org`, or through "Employer or organization? Log in here"
-on the sign-in screen. There are two kinds:
+on the sign-in screen. There are two kinds. Registration asks for details that identify the organization (no personal name;
+the owner login *is* the organization):
+- **Employers:** registered business name, type of business, a government business ID (**GSTIN**,
+  **Udyam** or **PAN**), work-site area, city, PIN code, official email.
+- **Support groups:** registered name, type, registration number (**NGO Darpan ID** for NGOs), city,
+  PIN code, official email.
+
+Formats are checked, including the GSTIN check character. Each ID and each email can register only one
+organization. The admin checks that an ID really belongs to the organization before verifying it.
+
+The two kinds do different things:
 
 - **Employer companies.** The owner adds managers and supervisors, each with their own phone + PIN.
   - Record days worked and payments for linked workers.

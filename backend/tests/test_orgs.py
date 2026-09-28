@@ -11,9 +11,25 @@ def worker(client, name, phone):
         "recovery_question": 1, "recovery_answer": "hyderabad", "accept_terms": True}).json()["id"]
 
 
-def org(client, name, kind, phone, owner="Owner"):
-    r = client.post("/org/register", json={"org_name": name, "kind": kind, "owner_name": owner, "phone": phone,
-                                           "pin": "5678", "pin_confirm": "5678", "accept_terms": True})
+_n = iter(range(1000, 9999))
+
+
+def gstin(state="36"):
+    """A well-formed GSTIN (valid check character) for tests."""
+    from app.validators import gstin_check_char
+    first = f"{state}AABCR{next(_n):04d}K1Z"
+    return first + gstin_check_char(first)
+
+
+def reg_body(name, kind, phone, **over):
+    base = ({"category": "construction", "reg_type": "gstin", "reg_number": gstin(), "area": "Kukatpally"}
+            if kind == "employer" else {"category": "ngo", "reg_type": "darpan", "reg_number": f"TS/2019/{next(_n):07d}"})
+    return {"org_name": name, "kind": kind, "email": f"{phone}@example.org", "city": "Hyderabad", "pincode": "500072",
+            "phone": phone, "pin": "5678", "pin_confirm": "5678", "accept_terms": True, **base, **over}
+
+
+def org(client, name, kind, phone):
+    r = client.post("/org/register", json=reg_body(name, kind, phone))
     assert r.status_code == 201, r.text
     t = client.post("/org/login", json={"phone": phone, "pin": "5678"}).json()["token"]
     return {"Authorization": f"Bearer {t}"}
@@ -30,8 +46,7 @@ def test_employer_organization_end_to_end(client, fake, admin):
     say(client, fake, ravi, ExtractedEvent(type="payment", amount=2000))
 
     boss = org(client, "Rakesh Builders", "employer", "9800000001")
-    assert client.post("/org/register", json={"org_name": "rakesh builders", "kind": "employer", "owner_name": "X",
-                       "phone": "9800000009", "pin": "1111", "pin_confirm": "1111", "accept_terms": True}).status_code == 409
+    assert client.post("/org/register", json=reg_body("rakesh builders", "employer", "9800000009")).status_code == 409
 
     # Team: owner adds a supervisor; supervisors can record but not invite
     assert client.post("/org/members", headers=boss, json={"name": "Sup", "phone": "9800000002", "pin": "2222",
@@ -151,3 +166,36 @@ def test_admin_can_list_and_remove_organizations(client, fake, admin):
     assert client.delete(f"/admin/orgs/{listed[0]['id']}", headers=admin).status_code == 200
     assert client.get(f"/workers/{ravi}/organizations").json()["pending"] == []   # unconfirmed entries go too
     assert client.get("/org/me", headers=boss).status_code == 401
+
+
+def test_registration_details_are_checked_and_unique(client):
+    from app.validators import gstin_error
+    assert gstin_error("27AAPFU0939F1ZV") is None                        # the GST portal's sample GSTIN
+    assert "last character" in gstin_error("27AAPFU0939F1ZW")             # one wrong character
+    assert "state code" in gstin_error("40AAPFU0939F1ZV")
+
+    def reg(**over):
+        return client.post("/org/register", json=reg_body("Sai Enterprises", "employer", "9800000041", **over))
+    assert "last character" in reg(reg_number="27AAPFU0939F1ZW").json()["detail"]
+    assert "Udyam" in reg(reg_type="udyam", reg_number="UDYAM-TS-2-12345").json()["detail"]
+    assert "PAN" in reg(reg_type="pan", reg_number="ABCD1234F").json()["detail"]
+    assert reg(category="spaceship").status_code == 422
+    assert reg(area="").status_code == 422
+    assert "PIN code" in reg(pincode="012345").json()["detail"]
+    assert "email" in reg(email="not-an-email").json()["detail"]
+    assert "owner_name" not in reg_body("x", "employer", "1")                # no personal name needed
+    ok = reg(reg_type="udyam", reg_number=" udyam-ts-02-0012345 ", email="Office@Sai.in")
+    assert ok.status_code == 201, ok.text
+    # the same ID or email can't register a second organization
+    again = client.post("/org/register", json=reg_body("Sai Traders", "employer", "9800000042",
+                                                        reg_type="udyam", reg_number="UDYAM-TS-02-0012345"))
+    assert again.status_code == 409 and "registration number" in again.json()["detail"]
+    email_again = client.post("/org/register", json=reg_body("Sai Traders", "employer", "9800000042", email="office@sai.in"))
+    assert email_again.status_code == 409 and "email" in email_again.json()["detail"]
+
+    # support groups: NGO Darpan format; other types take their own registration number
+    ngo = lambda **o: client.post("/org/register", json=reg_body("Help Trust", "support", "9800000043", **o))
+    assert "Darpan" in ngo(reg_number="12345").json()["detail"]
+    union = ngo(category="union", reg_type="registration", reg_number="TU/HYD/1234")
+    assert union.status_code == 201 and union.json()["member"]["name"] == "Help Trust"
+    assert client.get("/org/options").json()["support"]["labour_office"] == "Government labour office"

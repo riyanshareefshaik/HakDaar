@@ -38,13 +38,32 @@ def find_employer_org(name: str) -> dict | None:
         return dict(row) if row else None
 
 
-def create_org(name: str, kind: str, owner_name: str, phone: str, pin: str) -> tuple[dict, dict]:
-    org = {"id": _id("org", name), "name": name.strip(), "kind": kind, "verified": 0, "created_at": db.now_iso()}
-    member = {"id": _id("member", owner_name), "org_id": org["id"], "name": owner_name.strip(), "phone": phone,
+ORG_DETAILS = ("category", "reg_type", "reg_number", "email", "area", "city", "pincode")
+
+
+def find_by_registration(reg_type: str, reg_number: str) -> dict | None:
+    with db.connect() as conn:
+        row = conn.execute("SELECT * FROM organizations WHERE reg_type = ? AND reg_number = ?",
+                           (reg_type, reg_number)).fetchone()
+        return dict(row) if row else None
+
+
+def find_by_email(email: str) -> dict | None:
+    with db.connect() as conn:
+        row = conn.execute("SELECT * FROM organizations WHERE lower(email) = lower(?)", (email,)).fetchone()
+        return dict(row) if row else None
+
+
+def create_org(name: str, kind: str, phone: str, pin: str, details: dict) -> tuple[dict, dict]:
+    """The organization and its owner login (the owner is the organization itself; no personal name)."""
+    org = {"id": _id("org", name), "name": name.strip(), "kind": kind, "verified": 0, "created_at": db.now_iso(),
+           **{k: details.get(k) for k in ORG_DETAILS}}
+    member = {"id": _id("member", name), "org_id": org["id"], "name": org["name"], "phone": phone,
               "role": "owner", "created_at": db.now_iso()}
     with db.connect() as conn:
-        conn.execute("INSERT INTO organizations (id, name, kind, verified, created_at) VALUES (?, ?, ?, ?, ?)",
-                     (org["id"], org["name"], kind, 0, org["created_at"]))
+        cols = ["id", "name", "kind", "verified", "created_at", *ORG_DETAILS]
+        conn.execute(f"INSERT INTO organizations ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                     [org[c] for c in cols])
         conn.execute("INSERT INTO org_members (id, org_id, name, phone, pin_hash, role, created_at) "
                      "VALUES (?, ?, ?, ?, ?, ?, ?)",
                      (member["id"], org["id"], member["name"], phone, db.hash_pin(pin), "owner", member["created_at"]))

@@ -140,6 +140,7 @@ export const api = {
   disputeEntry: (id, eventId, reason) => req(`/workers/${enc(id)}/entries/${eventId}/dispute`, { method: 'POST', body: { reason } }),
 
   // Organization portal (uses the organization login)
+  orgOptions: () => req('/org/options'),
   orgRegister: (b) => req('/org/register', { method: 'POST', body: b }),
   orgLogin: (b) => req('/org/login', { method: 'POST', body: b }),
   orgMe: () => req('/org/me', { org: true }),
