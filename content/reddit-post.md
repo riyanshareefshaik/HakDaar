@@ -1,6 +1,6 @@
 # Reddit link post
 
-**Subreddit:** r/LLMDevs (best fit: technical audience). Other allowed options: r/AIMemory, r/AI_Agents, r/SideProject.
+**Subreddit:** r/LLMDevs (best fit: technical audience). Other allowed options: r/AIMemory, r/aiagents, r/SideProject.
 
 **Post type:** Link
 
