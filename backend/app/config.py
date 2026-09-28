@@ -35,6 +35,12 @@ class Settings:
     # Hosted on the internet: every worker's data needs that worker's session token, and the
     # demo-only routes (list all workers, create without a PIN, wipe everything) are switched off.
     public_mode: bool = os.getenv("PUBLIC_MODE", "false").lower() in ("1", "true", "yes")
+    # Admin dashboard. Set these only in .env / host variables, never in code (the repo is public).
+    # On startup the account with ADMIN_PHONE is created (or its PIN reset) to ADMIN_PIN.
+    admin_phone: str = "".join(c for c in os.getenv("ADMIN_PHONE", "") if c.isdigit())[-10:]
+    admin_name: str = os.getenv("ADMIN_NAME", "Admin").strip() or "Admin"
+    admin_pin: str = os.getenv("ADMIN_PIN", "").strip()
+
     # Signs session tokens. If unset, a random one is created next to the database and reused.
     session_secret: str = os.getenv("SESSION_SECRET", "")
 

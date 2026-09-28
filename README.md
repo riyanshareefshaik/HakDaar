@@ -265,6 +265,18 @@ scripts/            start-hindsight.sh, start-backend.sh, start-frontend.sh
 It runs in public mode: each worker's data needs their login session, and the demo-only routes are off.
 See [DEPLOY.md](DEPLOY.md) for hakdaar.me, either on a small server or from a laptop through a Cloudflare Tunnel.
 
+## Admin dashboard
+
+One account can be the admin. Set `ADMIN_PHONE`, `ADMIN_NAME` and `ADMIN_PIN` in `.env` (or your host's
+variables), never in code. On startup that account is created, or its PIN reset to `ADMIN_PIN`.
+After logging in, **My account → Admin dashboard** shows:
+- totals: accounts, sign-ups, messages, money paid and still owed, and reports;
+- every account, with a way to delete fake ones;
+- every employer report, with a way to remove false ones;
+- **Delete all data**, which only the admin can do.
+
+Wrong PINs are limited to 5 per 15 minutes per phone number, for every account.
+
 ## Tests
 
 ```bash

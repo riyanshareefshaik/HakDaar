@@ -520,3 +520,68 @@ def test_signups_are_limited_per_network_in_public_mode(client, fake, monkeypatc
            "recovery_question": 1, "recovery_answer": "hyderabad", "accept_terms": True}
     codes = [client.post("/auth/register", json={**reg, "phone": f"98000000{i:02d}"}).status_code for i in range(7)]
     assert codes == [201] * 5 + [429, 429]
+
+
+@pytest.fixture
+def admin(client, monkeypatch):
+    """An admin account from settings (a made-up number, like the real one it lives only in env)."""
+    from app import main as main_mod
+    from app.config import settings
+    monkeypatch.setattr(settings, "admin_phone", "9000000009")
+    monkeypatch.setattr(settings, "admin_name", "Admin")
+    monkeypatch.setattr(settings, "admin_pin", "4321")
+    monkeypatch.setattr(main_mod, "_login_failures", {})
+    main_mod.ensure_admin()
+    r = client.post("/auth/login", json={"phone": "9000000009", "pin": "4321"}).json()
+    assert r["is_admin"] is True
+    return {"Authorization": f"Bearer {r['token']}"}
+
+
+def test_admin_dashboard_is_admin_only(client, fake, admin):
+    reg = {"name": "Ravi", "phone": "9123456780", "pin": "1234", "pin_confirm": "1234", "language": "en",
+           "recovery_question": 1, "recovery_answer": "hyderabad", "accept_terms": True}
+    ravi = client.post("/auth/register", json=reg).json()["id"]
+    ravi_login = client.post("/auth/login", json={"phone": "9123456780", "pin": "1234"}).json()
+    assert ravi_login["is_admin"] is False
+    for path in ["/admin/overview", "/admin/workers", "/admin/reports"]:
+        assert client.get(path).status_code == 401
+        assert client.get(path, headers={"Authorization": f"Bearer {ravi_login['token']}"}).status_code == 403
+    assert client.post("/admin/reset", headers={"Authorization": f"Bearer {ravi_login['token']}"}).status_code == 403
+
+    # Overview, workers and reports
+    _short_paid_worker(client, fake, "Fake Reporter")
+    ov = client.get("/admin/overview", headers=admin).json()
+    assert ov["workers"] == 3 and ov["reports_short"] == 1 and ov["total_owed"] == 3000
+    workers = client.get("/admin/workers", headers=admin).json()
+    assert {w["name"] for w in workers} == {"Admin", "Ravi", "Fake Reporter"}
+    reports = client.get("/admin/reports", headers=admin).json()
+    assert reports[0]["employer_name"] == "Rakesh Builders" and reports[0]["worker_name"] == "Fake Reporter"
+
+    # Remove a false report, then a fake account
+    assert client.delete(f"/admin/reports/{reports[0]['id']}", headers=admin).json()["deleted"] == reports[0]["id"]
+    assert client.get("/employers/Rakesh Builders/reputation").json()["stats"]["workers_reporting_problems"] == 0
+    assert client.delete(f"/admin/workers/{ravi}", headers=admin).json()["deleted"] == ravi
+    admin_id = next(w["id"] for w in workers if w["is_admin"])
+    assert client.delete(f"/admin/workers/{admin_id}", headers=admin).status_code == 400
+
+    # Delete everything: the admin account comes back from settings
+    assert client.post("/admin/reset", headers=admin).status_code == 200
+    again = client.post("/auth/login", json={"phone": "9000000009", "pin": "4321"}).json()
+    assert again["is_admin"] and [w["name"] for w in client.get(
+        "/admin/workers", headers={"Authorization": f"Bearer {again['token']}"}).json()] == ["Admin"]
+
+
+def test_admin_number_is_reserved_and_pin_only_set_on_server(client, admin):
+    reg = {"name": "Someone", "phone": "9000000009", "pin": "1111", "pin_confirm": "1111", "language": "en",
+           "recovery_question": 1, "recovery_answer": "x" * 3, "accept_terms": True}
+    assert client.post("/auth/register", json=reg).status_code == 409
+    assert client.post("/auth/recovery-question", json={"phone": "9000000009"}).status_code == 409
+    assert client.post("/auth/reset-pin", json={"phone": "9000000009", "answer": "x", "new_pin": "0000"}).status_code == 409
+
+
+def test_wrong_pin_guesses_are_limited(client, admin):
+    codes = [client.post("/auth/login", json={"phone": "9000000009", "pin": f"{i:04d}"}).status_code
+             for i in range(6)]
+    assert codes == [401] * 5 + [429]
+    # even the right PIN waits out the lock
+    assert client.post("/auth/login", json={"phone": "9000000009", "pin": "4321"}).status_code == 429

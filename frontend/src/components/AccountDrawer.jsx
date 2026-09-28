@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, LogOut, Moon, Phone, RefreshCw, Sun, Trash2, X } from 'lucide-react'
+import { Loader2, LogOut, Moon, Phone, RefreshCw, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
 import { Avatar } from './Header'
 import { AlertsCard, HowCalculated, MemoriesCard } from './LedgerPanel'
 
 /** Slide-over "My account": profile, what HakDaar has learned, employer warnings, connections, log out. */
-export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onResetAll, health, onRecheck, onOpenLegal, theme, onTheme }) {
+export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onOpenAdmin, health, onRecheck, onOpenLegal, theme, onTheme }) {
   const [tab, setTab] = useState(section || 'memories')
   useEffect(() => { if (open && section) setTab(section) }, [open, section])
   useEffect(() => {
@@ -50,6 +50,9 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
         <Connections s={s} health={health} onRecheck={onRecheck} />
 
         <div className="space-y-2 border-t border-line p-5">
+          {worker.is_admin && (
+            <button onClick={onOpenAdmin} className="btn-dark w-full"><ShieldCheck className="size-4" /> Admin dashboard</button>
+          )}
           <button onClick={onLogout} className="btn-white w-full"><LogOut className="size-4" /> {s.logout}</button>
           <button onClick={onDelete} className="btn-dark w-full hover:border-owed/60 hover:text-owed"><Trash2 className="size-4" /> {s.deleteAccount}</button>
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[12px] text-muted">
@@ -57,7 +60,6 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
               <button onClick={() => onOpenLegal('terms')} className="hover:text-white">{s.terms}</button>
               <button onClick={() => onOpenLegal('privacy')} className="hover:text-white">{s.privacy}</button>
             </span>
-            {!health?.public_mode && <button onClick={onResetAll} className="hover:text-owed">{s.resetAll} (demo)</button>}
           </div>
         </div>
       </aside>

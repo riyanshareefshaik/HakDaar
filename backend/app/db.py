@@ -243,6 +243,50 @@ def delete_reports(employer_name: str, worker_id: str) -> None:
                      (employer_name, worker_id))
 
 
+def admin_overview() -> dict:
+    with connect() as conn:
+        one = lambda q: conn.execute(q).fetchone()[0]
+        return {
+            "workers": one("SELECT COUNT(*) FROM workers"),
+            "new_workers_24h": one("SELECT COUNT(*) FROM workers WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-1 day')"),
+            "new_workers_7d": one("SELECT COUNT(*) FROM workers WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 day')"),
+            "messages": one("SELECT COUNT(*) FROM messages WHERE role = 'user'"),
+            "entries": one("SELECT COUNT(*) FROM events"),
+            "employers": one("SELECT COUNT(DISTINCT lower(employer_name)) FROM events"),
+            "reports_short": one("SELECT COUNT(*) FROM employer_reports WHERE kind = 'short_payment'"),
+            "reports_late": one("SELECT COUNT(*) FROM employer_reports WHERE kind = 'late_payment'"),
+            "reports_ok": one("SELECT COUNT(*) FROM employer_reports WHERE kind = 'paid_ok'"),
+        }
+
+
+def admin_workers() -> list[dict]:
+    """Every account with a little activity info, newest first."""
+    with connect() as conn:
+        rows = conn.execute(f"""
+            SELECT {', '.join('w.' + c.strip() for c in PUBLIC_COLS.split(','))},
+                   (SELECT COUNT(*) FROM messages m WHERE m.worker_id = w.id AND m.role = 'user') AS messages,
+                   (SELECT COUNT(*) FROM events e WHERE e.worker_id = w.id) AS entries,
+                   (SELECT COUNT(*) FROM employer_reports r WHERE r.worker_id = w.id) AS reports,
+                   (SELECT MAX(created_at) FROM messages m WHERE m.worker_id = w.id) AS last_active
+            FROM workers w ORDER BY w.created_at DESC""")
+        return [dict(r) for r in rows]
+
+
+def admin_reports() -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute("""
+            SELECT r.id, r.employer_name, r.kind, r.amount_short, r.summary, r.created_at, r.worker_id,
+                   w.name AS worker_name, w.phone AS worker_phone
+            FROM employer_reports r LEFT JOIN workers w ON w.id = r.worker_id
+            ORDER BY r.created_at DESC""")
+        return [dict(r) for r in rows]
+
+
+def delete_report(report_id: int) -> bool:
+    with connect() as conn:
+        return conn.execute("DELETE FROM employer_reports WHERE id = ?", (report_id,)).rowcount > 0
+
+
 def delete_worker(worker_id: str) -> None:
     with connect() as conn:
         conn.execute("DELETE FROM employer_reports WHERE worker_id = ?", (worker_id,))

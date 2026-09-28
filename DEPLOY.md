@@ -153,6 +153,9 @@ is a few dollars a month.
      CORS_ORIGINS=https://hakdaar.vercel.app
      SESSION_SECRET=<output of: openssl rand -hex 32>
      DATABASE_PATH=/data/hakdaar.db
+     ADMIN_PHONE=<your 10-digit number>
+     ADMIN_NAME=<your name>
+     ADMIN_PIN=<4 digits>
      ```
    - Add a **Volume** mounted at `/data`.
    - Settings → Networking → **Generate Domain**.

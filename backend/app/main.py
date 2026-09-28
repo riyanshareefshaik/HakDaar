@@ -18,9 +18,34 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 log = logging.getLogger("hakdaar.api")
 
 
+def ensure_admin() -> None:
+    """Create the admin account from ADMIN_PHONE / ADMIN_NAME / ADMIN_PIN (env only), or reset its
+    PIN to ADMIN_PIN, so the admin PIN always matches the server settings."""
+    if not (settings.admin_phone and settings.admin_pin):
+        return
+    if len(settings.admin_phone) != 10 or not (settings.admin_pin.isdigit() and len(settings.admin_pin) == 4):
+        log.warning("ADMIN_PHONE must be 10 digits and ADMIN_PIN 4 digits; admin account not set up")
+        return
+    row = db.find_by_phone(settings.admin_phone)
+    if row:
+        db.set_pin(row["id"], settings.admin_pin)
+    else:
+        db.create_worker(settings.admin_name, "en", settings.admin_phone, settings.admin_pin, terms_accepted=True)
+    log.info("Admin account ready for the configured ADMIN_PHONE")
+
+
+def is_admin(worker: dict | None) -> bool:
+    return bool(worker and settings.admin_phone and worker.get("phone") == settings.admin_phone)
+
+
+def _with_role(worker: dict) -> dict:
+    return {**worker, "is_admin": is_admin(worker)}
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init_db()
+    ensure_admin()
     yield
     await memory.close()
 
@@ -182,6 +207,8 @@ async def register(body: RegisterIn, request: Request):
         raise HTTPException(422, "Choose a security question and write its answer.")
     if db.find_by_phone(phone):
         raise HTTPException(409, "This phone number already has an account. Please log in.")
+    if settings.admin_phone and phone == settings.admin_phone:
+        raise HTTPException(409, "This phone number can't be used for a new account.")
     if settings.public_mode and not _signup_allowed(request.client.host if request.client else "unknown"):
         raise HTTPException(429, "Too many new accounts from this network today. Please try again tomorrow.")
     w = db.create_worker(body.name.strip(), body.language, phone, body.pin,
@@ -206,6 +233,8 @@ def _reset_blocked(phone: str) -> bool:
 
 @app.post("/auth/recovery-question")
 def recovery_question(body: RecoveryLookupIn):
+    if settings.admin_phone and _norm_phone(body.phone) == settings.admin_phone:
+        raise HTTPException(409, "This account's PIN can only be changed on the server.")
     row = db.find_by_phone(_norm_phone(body.phone))
     if not row:
         raise HTTPException(404, "No account found for this phone number.")
@@ -218,6 +247,8 @@ def recovery_question(body: RecoveryLookupIn):
 def reset_pin(body: ResetPinIn):
     import time
     phone = _norm_phone(body.phone)
+    if settings.admin_phone and phone == settings.admin_phone:
+        raise HTTPException(409, "This account's PIN can only be changed on the server.")
     if _reset_blocked(phone):
         raise HTTPException(429, "Too many wrong answers. Please try again after 15 minutes.")
     row = db.find_by_phone(phone)
@@ -229,12 +260,26 @@ def reset_pin(body: ResetPinIn):
     return {"ok": True}
 
 
+# A 4-digit PIN has only 10,000 possibilities, so wrong guesses are limited per phone number.
+_login_failures: dict[str, list[float]] = {}
+LOGIN_MAX_FAILURES, LOGIN_WINDOW_S = 5, 15 * 60
+
+
 @app.post("/auth/login")
 def login(body: LoginIn):
-    row = db.find_by_phone(_norm_phone(body.phone))
+    import time
+    phone = _norm_phone(body.phone)
+    now = time.time()
+    recent = [t for t in _login_failures.get(phone, []) if now - t < LOGIN_WINDOW_S]
+    _login_failures[phone] = recent
+    if len(recent) >= LOGIN_MAX_FAILURES:
+        raise HTTPException(429, "Too many wrong PINs. Please wait 15 minutes and try again.")
+    row = db.find_by_phone(phone)
     if not row or not db.check_pin(body.pin, row.get("pin_hash")):
+        recent.append(now)
         raise HTTPException(401, "Wrong phone number or PIN.")
-    return {**db.get_worker(row["id"]), "token": auth.issue(row["id"])}
+    _login_failures.pop(phone, None)
+    return {**_with_role(db.get_worker(row["id"])), "token": auth.issue(row["id"])}
 
 
 class WorkerPatch(BaseModel):
@@ -246,12 +291,12 @@ def update_worker(worker_id: str, body: WorkerPatch):
     """Change the language HakDaar replies in (the UI's language toggle)."""
     w = _worker_or_404(worker_id)
     db.update_worker_language(w["id"], body.language)
-    return db.get_worker(w["id"])
+    return _with_role(db.get_worker(w["id"]))
 
 
 @app.get("/workers/{worker_id}")
 def get_worker(worker_id: str):
-    return _worker_or_404(worker_id)
+    return _with_role(_worker_or_404(worker_id))
 
 
 @app.delete("/workers/{worker_id}")
@@ -437,6 +482,92 @@ async def reset_all():
     auth.demo_only()
     bank_ids = [memory.worker_bank(w["id"]) for w in db.list_workers()] + [memory.REPUTATION_BANK]
     db.reset_db()
+    deleted, warning = 0, None
+    for b in bank_ids:
+        try:
+            deleted += await memory.delete_bank(b)
+        except memory.MemoryUnavailable as e:
+            warning = str(e)
+            break
+    return {"banks_deleted": deleted, "warning": warning}
+
+
+# ---------------------------------------------------------------- admin dashboard
+
+def _require_admin(request: Request) -> dict:
+    """Only the signed-in admin account (ADMIN_PHONE), in every mode."""
+    wid = auth.worker_from(request)
+    worker = db.get_worker(wid) if wid else None
+    if not worker or worker["id"] != wid:
+        raise HTTPException(401, "Please log in again.")
+    if not is_admin(worker):
+        raise HTTPException(403, "Admins only.")
+    return worker
+
+
+@app.get("/admin/overview")
+def admin_overview(request: Request):
+    _require_admin(request)
+    stats = db.admin_overview()
+    owed = paid = 0
+    for w in db.list_workers():
+        t = ledger.totals(ledger.summarize(db.list_events(w["id"])))
+        owed += t["amount_owed"]
+        paid += t["amount_paid"]
+    return {**stats, "total_owed": owed, "total_paid": paid}
+
+
+@app.get("/admin/workers")
+def admin_workers(request: Request):
+    _require_admin(request)
+    out = []
+    for w in db.admin_workers():
+        t = ledger.totals(ledger.summarize(db.list_events(w["id"])))
+        out.append({**w, "is_admin": is_admin(w), "owed": t["amount_owed"], "paid": t["amount_paid"]})
+    return out
+
+
+@app.delete("/admin/workers/{worker_id}")
+async def admin_delete_worker(worker_id: str, request: Request):
+    """Remove an account (e.g. a fake one), with its chats, ledger, reports and private memory."""
+    admin = _require_admin(request)
+    w = db.get_worker(worker_id)
+    if not w or w["id"] != worker_id:
+        raise HTTPException(404, "No such account.")
+    if w["id"] == admin["id"]:
+        raise HTTPException(400, "You can't delete the admin account.")
+    db.delete_worker(w["id"])
+    warning = None
+    try:
+        await memory.delete_bank(memory.worker_bank(w["id"]))
+    except memory.MemoryUnavailable as e:
+        warning = str(e)
+    return {"deleted": w["id"], "warning": warning}
+
+
+@app.get("/admin/reports")
+def admin_reports(request: Request):
+    _require_admin(request)
+    return db.admin_reports()
+
+
+@app.delete("/admin/reports/{report_id}")
+def admin_delete_report(report_id: int, request: Request):
+    """Remove a report you believe is false. Warnings are recounted from the remaining reports."""
+    _require_admin(request)
+    if not db.delete_report(report_id):
+        raise HTTPException(404, "No such report.")
+    return {"deleted": report_id}
+
+
+@app.post("/admin/reset")
+async def admin_reset(request: Request):
+    """Delete ALL data: every account, chat, ledger, report and memory bank. The admin account is
+    recreated from the server settings, so the admin just logs in again."""
+    _require_admin(request)
+    bank_ids = [memory.worker_bank(w["id"]) for w in db.list_workers()] + [memory.REPUTATION_BANK]
+    db.reset_db()
+    ensure_admin()
     deleted, warning = 0, None
     for b in bank_ids:
         try:

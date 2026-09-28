@@ -115,7 +115,13 @@ export const api = {
   reputation: (name) => req(`/employers/${enc(name)}/reputation`),
   deleteWorker: (id) => req(`/workers/${enc(id)}`, { method: 'DELETE' }),
   deleteEvent: (id, eventId) => req(`/workers/${enc(id)}/events/${eventId}`, { method: 'DELETE' }),
-  reset: () => req('/reset', { method: 'POST' }),
+  // Admin dashboard (the server only answers for the admin account)
+  adminOverview: () => req('/admin/overview'),
+  adminWorkers: () => req('/admin/workers'),
+  adminDeleteWorker: (id) => req(`/admin/workers/${enc(id)}`, { method: 'DELETE' }),
+  adminReports: () => req('/admin/reports'),
+  adminDeleteReport: (id) => req(`/admin/reports/${id}`, { method: 'DELETE' }),
+  adminReset: () => req('/admin/reset', { method: 'POST' }),
 }
 
 export function inr(n) {

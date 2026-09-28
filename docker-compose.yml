@@ -30,6 +30,10 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-}
       # Only needed when the website is hosted elsewhere (e.g. https://hakdaar.vercel.app)
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      # Admin dashboard account (set in .env only; never commit them)
+      ADMIN_PHONE: ${ADMIN_PHONE:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      ADMIN_PIN: ${ADMIN_PIN:-}
     volumes:
       - hakdaar-data:/data
     depends_on: [hindsight]

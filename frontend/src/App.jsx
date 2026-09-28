@@ -8,6 +8,7 @@ import ChatPanel from './components/ChatPanel'
 import LedgerPanel from './components/LedgerPanel'
 import Login from './components/Login'
 import AccountDrawer from './components/AccountDrawer'
+import AdminDashboard from './components/AdminDashboard'
 import HowItWorks from './components/HowItWorks'
 import LegalModal from './components/LegalModal'
 
@@ -205,14 +206,9 @@ export default function App() {
     } catch (e) { showToast(e.message, 'error') }
   }
 
-  const resetAll = async () => {
-    if (!window.confirm(s.confirmReset)) return
-    try {
-      const r = await api.reset()
-      if (r.warning) showToast(r.warning, 'error')
-      logout()
-    } catch (e) { showToast(e.message, 'error') }
-  }
+  // Admin dashboard (only shown to the admin account; the server checks every call too)
+  const [adminOpen, setAdminOpen] = useState(false)
+  const afterReset = () => { setAdminOpen(false); logout(); showToast('All data deleted. Please log in again.') }
 
   // ---------- chat ----------
   const send = async (text) => {
@@ -334,7 +330,7 @@ export default function App() {
   )
 
   const toastEl = toast && (
-    <div role="status" className={`fixed inset-x-4 bottom-24 z-50 mx-auto w-fit max-w-md rounded-full px-5 py-2.5 text-sm font-medium shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-rise lg:bottom-8 ${toast.kind === 'error' ? 'bg-owed text-white' : 'bg-white text-black'}`}>
+    <div role="status" className={`fixed inset-x-4 bottom-24 z-[60] mx-auto w-fit max-w-md rounded-full px-5 py-2.5 text-sm font-medium shadow-[0_20px_60px_rgba(0,0,0,0.45)] animate-rise lg:bottom-8 ${toast.kind === 'error' ? 'bg-owed text-white' : 'bg-white text-black'}`}>
       {toast.msg}
     </div>
   )
@@ -450,10 +446,14 @@ export default function App() {
         s={s} open={drawer.open} section={drawer.section} onClose={() => setDrawer((d) => ({ ...d, open: false }))}
         worker={worker} alerts={alerts}
         memoryProps={{ recalled, learned, newIds, error: memoryError, loading: loadingWorker, learning, worker }}
-        onLogout={logout} onDelete={deleteAccount} onResetAll={resetAll} theme={theme} onTheme={setTheme}
+        onLogout={logout} onDelete={deleteAccount} onOpenAdmin={() => { setDrawer((d) => ({ ...d, open: false })); setAdminOpen(true) }} theme={theme} onTheme={setTheme}
         onOpenLegal={setLegalDoc}
         health={health} onRecheck={async () => { try { setHealth(await api.health()) } catch (e) { showToast(e.message, 'error') } }}
       />
+      {worker?.is_admin && (
+        <AdminDashboard open={adminOpen} onClose={() => setAdminOpen(false)} admin={worker}
+          onResetDone={afterReset} showToast={showToast} />
+      )}
       {toastEl}
     </div>
   )
