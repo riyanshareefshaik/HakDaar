@@ -133,6 +133,48 @@ can use `api.hakdaar.me` instead: add an A record for `api` pointing at the serv
 
 ---
 
+## Railway (backend always on, website stays on Vercel)
+
+Railway runs two services from this repo: the memory server and the backend. Each keeps its data
+on a volume. The backend gets a fixed `https://….up.railway.app` address. Hindsight needs a few GB
+of RAM, so check Railway's current plan limits: the free trial may be too small, and the Hobby plan
+is a few dollars a month.
+
+1. **New Project → Deploy from GitHub repo →** `riyanshareefshaik/HakDaar`. This creates the
+   **backend** service.
+   - Settings → **Root Directory**: `backend`. It builds from `backend/Dockerfile` and `backend/railway.json`.
+   - Variables:
+     ```
+     GROQ_API_KEY=gsk_...
+     GROQ_MODEL=openai/gpt-oss-120b
+     HINDSIGHT_URL=http://hindsight.railway.internal:8888
+     HINDSIGHT_LLM_MODEL=openai/gpt-oss-20b
+     PUBLIC_MODE=true
+     CORS_ORIGINS=https://hakdaar.vercel.app
+     SESSION_SECRET=<output of: openssl rand -hex 32>
+     DATABASE_PATH=/data/hakdaar.db
+     ```
+   - Add a **Volume** mounted at `/data`.
+   - Settings → Networking → **Generate Domain**.
+2. **+ New → Docker Image →** `ghcr.io/vectorize-io/hindsight:latest`. Rename the service to
+   **hindsight**, so its private address is `hindsight.railway.internal`.
+   - Variables:
+     ```
+     HINDSIGHT_API_LLM_PROVIDER=groq
+     HINDSIGHT_API_LLM_API_KEY=gsk_...
+     HINDSIGHT_API_LLM_MODEL=openai/gpt-oss-20b
+     HINDSIGHT_API_LLM_GROQ_SERVICE_TIER=on_demand
+     HINDSIGHT_API_WORKER_ID=hakdaar-railway
+     ```
+   - Add a **Volume** mounted at `/home/hindsight/.pg0`.
+   - Don't generate a public domain; only the backend talks to it.
+3. Open `https://<backend>.up.railway.app/health`. Both `hindsight` and `groq` should say `"ok": true`.
+   The first start of Hindsight can take a few minutes.
+4. In Vercel, set `VITE_API_URL=https://<backend>.up.railway.app`, with **no** `/api` at the end (there
+   is no Caddy in front on Railway). Then redeploy.
+
+---
+
 ## Checks after deploying
 
 - `https://hakdaar.me` opens the landing page.
