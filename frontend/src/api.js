@@ -19,11 +19,16 @@ const OFFLINE = import.meta.env.DEV
   ? 'Cannot reach the HakDaar server. Is the backend running on port 8000?'
   : 'HakDaar is offline right now. Your records are safe. Please try again in a few minutes.'
 
-async function send(path, method, body) {
+// Organization logins (employers, support groups) have their own token, kept apart from a worker's.
+let orgToken = null
+export const setOrgToken = (t) => { orgToken = t || null }
+const orgHeader = () => (orgToken ? { Authorization: `Bearer ${orgToken}` } : {})
+
+async function send(path, method, body, headers = authHeader()) {
   try {
     return await fetch(`${BASE}${path}`, {
       method,
-      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeader() },
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined,
     })
   } catch {
@@ -31,8 +36,8 @@ async function send(path, method, body) {
   }
 }
 
-async function req(path, { method = 'GET', body } = {}) {
-  const res = await send(path, method, body)
+async function req(path, { method = 'GET', body, org = false } = {}) {
+  const res = await send(path, method, body, org ? orgHeader() : authHeader())
   const data = await res.json().catch(() => null)
   if (!res.ok) {
     // Vite's proxy answers 5xx with an empty body when the backend is down.
@@ -122,6 +127,37 @@ export const api = {
   adminReports: () => req('/admin/reports'),
   adminDeleteReport: (id) => req(`/admin/reports/${id}`, { method: 'DELETE' }),
   adminReset: () => req('/admin/reset', { method: 'POST' }),
+  adminOrgs: () => req('/admin/orgs'),
+  adminVerifyOrg: (id, verified) => req(`/admin/orgs/${enc(id)}/verify`, { method: 'POST', body: { verified } }),
+  adminDeleteOrg: (id) => req(`/admin/orgs/${enc(id)}`, { method: 'DELETE' }),
+
+  // Worker side of organizations
+  myOrgs: (id) => req(`/workers/${enc(id)}/organizations`),
+  answerInvite: (id, linkId, accept, employer_alias) =>
+    req(`/workers/${enc(id)}/invites/${linkId}`, { method: 'POST', body: { accept, employer_alias } }),
+  leaveOrg: (id, linkId) => req(`/workers/${enc(id)}/organizations/${linkId}`, { method: 'DELETE' }),
+  confirmEntry: (id, eventId) => req(`/workers/${enc(id)}/entries/${eventId}/confirm`, { method: 'POST' }),
+  disputeEntry: (id, eventId, reason) => req(`/workers/${enc(id)}/entries/${eventId}/dispute`, { method: 'POST', body: { reason } }),
+
+  // Organization portal (uses the organization login)
+  orgRegister: (b) => req('/org/register', { method: 'POST', body: b }),
+  orgLogin: (b) => req('/org/login', { method: 'POST', body: b }),
+  orgMe: () => req('/org/me', { org: true }),
+  orgMembers: () => req('/org/members', { org: true }),
+  orgAddMember: (b) => req('/org/members', { method: 'POST', body: b, org: true }),
+  orgRemoveMember: (id) => req(`/org/members/${enc(id)}`, { method: 'DELETE', org: true }),
+  orgInvite: (phone) => req('/org/invites', { method: 'POST', body: { phone }, org: true }),
+  orgWorkers: () => req('/org/workers', { org: true }),
+  orgRemoveWorker: (id) => req(`/org/workers/${enc(id)}`, { method: 'DELETE', org: true }),
+  orgRecord: (workerId, entry) => req(`/org/workers/${enc(workerId)}/entries`, { method: 'POST', body: entry, org: true }),
+  orgWorkerEntries: (workerId) => req(`/org/workers/${enc(workerId)}/entries`, { org: true }),
+  orgDues: () => req('/org/dues', { org: true }),
+  orgReputation: () => req('/org/reputation', { org: true }),
+  orgReply: (text) => req('/org/reputation/reply', { method: 'POST', body: { text }, org: true }),
+  orgCases: () => req('/org/cases', { org: true }),
+  orgCase: (id) => req(`/org/cases/${enc(id)}`, { org: true }),
+  orgAddNote: (id, text) => req(`/org/cases/${enc(id)}/notes`, { method: 'POST', body: { text }, org: true }),
+  orgCaseStatus: (id, status) => req(`/org/cases/${enc(id)}`, { method: 'PATCH', body: { status }, org: true }),
 }
 
 export function inr(n) {

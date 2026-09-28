@@ -377,4 +377,48 @@ const AUTH = {
   },
 }
 
-export const t = (lang) => ({ ...(S[lang] || S.en), ...(EXTRA[lang] || EXTRA.en), ...(EXTRA2[lang] || EXTRA2.en), ...(AUTH[lang] || AUTH.en) })
+
+// Organizations, as a worker sees them: invites, and entries an employer recorded that wait for their OK.
+const ORG = {
+  en: {
+    orgSection: 'Your organizations', orgInviteFrom: (o) => `${o} wants to connect with you`,
+    orgInviteEmployer: 'Your employer can then record your days and payments. Nothing counts until you confirm it.',
+    orgInviteSupport: 'This support group can then see what you are owed, to help you get paid. You can leave any time.',
+    orgWhich: 'Which of your employers is this?', orgNone: 'None of these',
+    accept: 'Accept', decline: 'Decline', leave: 'Leave', verifiedOrg: 'Verified', unverifiedOrg: 'Not verified yet',
+    waitingOk: 'Waiting for your OK', waitingOkN: (n) => `${n} waiting for your OK`,
+    orgRecordedPaid: (o, a) => `${o} says they paid you ${a}`, orgRecordedDays: (o, d) => `${o} says you worked ${d} day${d === 1 ? '' : 's'}`,
+    confirmIt: 'Yes, correct', notCorrect: 'Not correct', disputed: 'You said this is not correct',
+    confirmedMerged: 'Confirmed. It matched your own entry, so it is counted once.', confirmedOk: 'Confirmed and added to your ledger.',
+    employerReply: 'Employer replied', withEmployer: 'Confirmed with employer', employerKind: 'Employer', supportKind: 'Support group',
+    orgLoginLink: 'Employer or organization? Log in here',
+  },
+  te: {
+    orgSection: 'మీ సంస్థలు', orgInviteFrom: (o) => `${o} మీతో కలవాలనుకుంటోంది`,
+    orgInviteEmployer: 'అప్పుడు మీ యజమాని మీ పని రోజులు, చెల్లింపులు నమోదు చేయవచ్చు. మీరు ఒప్పుకునే వరకు ఏదీ లెక్కలోకి రాదు.',
+    orgInviteSupport: 'ఈ సహాయ సంస్థ మీకు రావాల్సిన డబ్బు చూసి సహాయం చేస్తుంది. ఎప్పుడైనా వదిలేయవచ్చు.',
+    orgWhich: 'ఇది మీ యజమానుల్లో ఎవరు?', orgNone: 'వీరెవరూ కాదు',
+    accept: 'ఒప్పుకోండి', decline: 'వద్దు', leave: 'వదిలేయండి', verifiedOrg: 'ధృవీకరించబడింది', unverifiedOrg: 'ఇంకా ధృవీకరించలేదు',
+    waitingOk: 'మీ ఒప్పుదల కోసం', waitingOkN: (n) => `${n} మీ ఒప్పుదల కోసం`,
+    orgRecordedPaid: (o, a) => `${o} మీకు ${a} ఇచ్చామని అంటున్నారు`, orgRecordedDays: (o, d) => `${o} మీరు ${d} రోజులు పని చేశారని అంటున్నారు`,
+    confirmIt: 'అవును, సరైనదే', notCorrect: 'సరైనది కాదు', disputed: 'ఇది సరైనది కాదని మీరు చెప్పారు',
+    confirmedMerged: 'ఒప్పుకున్నారు. ఇది మీ నమోదుతో సరిపోయింది, అందుకే ఒక్కసారే లెక్కించబడింది.', confirmedOk: 'ఒప్పుకున్నారు, మీ లెక్కలో చేర్చాం.',
+    employerReply: 'యజమాని జవాబు', withEmployer: 'యజమానితో ధృవీకరించబడింది', employerKind: 'యజమాని', supportKind: 'సహాయ సంస్థ',
+    orgLoginLink: 'యజమాని లేదా సంస్థా? ఇక్కడ లాగిన్ అవ్వండి',
+  },
+  hi: {
+    orgSection: 'आपके संगठन', orgInviteFrom: (o) => `${o} आपसे जुड़ना चाहता है`,
+    orgInviteEmployer: 'फिर आपके मालिक आपके काम के दिन और भुगतान दर्ज कर सकेंगे। आपकी मंज़ूरी के बिना कुछ भी नहीं गिना जाएगा।',
+    orgInviteSupport: 'यह सहायता संगठन देख सकेगा कि आपका कितना बाकी है, ताकि आपको पैसा दिलाने में मदद करे। आप कभी भी छोड़ सकते हैं।',
+    orgWhich: 'यह आपके किस मालिक का नाम है?', orgNone: 'इनमें से कोई नहीं',
+    accept: 'स्वीकार करें', decline: 'मना करें', leave: 'छोड़ें', verifiedOrg: 'सत्यापित', unverifiedOrg: 'अभी सत्यापित नहीं',
+    waitingOk: 'आपकी मंज़ूरी का इंतज़ार', waitingOkN: (n) => `${n} आपकी मंज़ूरी का इंतज़ार`,
+    orgRecordedPaid: (o, a) => `${o} कहते हैं कि उन्होंने आपको ${a} दिए`, orgRecordedDays: (o, d) => `${o} कहते हैं कि आपने ${d} दिन काम किया`,
+    confirmIt: 'हाँ, सही है', notCorrect: 'सही नहीं है', disputed: 'आपने कहा यह सही नहीं है',
+    confirmedMerged: 'मंज़ूर। यह आपकी अपनी एंट्री से मिलता है, इसलिए एक ही बार गिना गया।', confirmedOk: 'मंज़ूर, आपके हिसाब में जोड़ दिया।',
+    employerReply: 'मालिक का जवाब', withEmployer: 'मालिक से पुष्टि', employerKind: 'मालिक', supportKind: 'सहायता संगठन',
+    orgLoginLink: 'मालिक या संगठन? यहाँ लॉग इन करें',
+  },
+}
+
+export const t = (lang) => ({ ...(S[lang] || S.en), ...(EXTRA[lang] || EXTRA.en), ...(EXTRA2[lang] || EXTRA2.en), ...(AUTH[lang] || AUTH.en), ...(ORG[lang] || ORG.en) })

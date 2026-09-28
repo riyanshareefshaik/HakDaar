@@ -4,7 +4,7 @@ import { Avatar } from './Header'
 import { AlertsCard, HowCalculated, MemoriesCard } from './LedgerPanel'
 
 /** Slide-over "My account": profile, what HakDaar has learned, employer warnings, connections, log out. */
-export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onOpenAdmin, health, onRecheck, onOpenLegal, theme, onTheme }) {
+export default function AccountDrawer({ s, open, onClose, worker, section, memoryProps, alerts, onLogout, onDelete, onOpenAdmin, orgs = [], onLeaveOrg, health, onRecheck, onOpenLegal, theme, onTheme }) {
   const [tab, setTab] = useState(section || 'memories')
   useEffect(() => { if (open && section) setTab(section) }, [open, section])
   useEffect(() => {
@@ -45,6 +45,22 @@ export default function AccountDrawer({ s, open, onClose, worker, section, memor
           {tab === 'memories' ? <MemoriesCard s={s} {...memoryProps} /> : <AlertsCard s={s} alerts={alerts} loading={false} />}
         </div>
 
+        {orgs.length > 0 && (
+          <section className="border-t border-line px-5 py-4">
+            <h3 className="eyebrow mb-2">{s.orgSection}</h3>
+            <ul className="space-y-2">
+              {orgs.map((o) => (
+                <li key={o.id} className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-white">{o.org_name}</span>
+                    <span className="block text-[12px] text-muted">{o.kind === 'employer' ? s.employerKind : s.supportKind} · {o.verified ? s.verifiedOrg : s.unverifiedOrg}</span>
+                  </span>
+                  <button onClick={() => window.confirm(`${s.leave}: ${o.org_name}?`) && onLeaveOrg(o.id)} className="btn-ghost py-1 text-[12.5px] hover:text-owed">{s.leave}</button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <Appearance s={s} theme={theme} onTheme={onTheme} />
         <HowCalculated s={s} />
         <Connections s={s} health={health} onRecheck={onRecheck} />

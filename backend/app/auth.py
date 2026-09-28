@@ -33,14 +33,33 @@ def issue(worker_id: str) -> str:
     return f"{worker_id}.{sig}"
 
 
-def worker_from(request: Request) -> str | None:
-    """The worker id a valid token belongs to, or None."""
+def _subject(request: Request) -> str | None:
+    """Whoever a valid token was issued to ('<worker id>' or 'm:<member id>'), or None."""
     header = request.headers.get("authorization", "")
     token = header[7:].strip() if header.lower().startswith("bearer ") else ""
-    worker_id, _, sig = token.rpartition(".")
-    if worker_id and hmac.compare_digest(issue(worker_id), token):
-        return worker_id
+    subject, _, sig = token.rpartition(".")
+    if subject and hmac.compare_digest(issue(subject), token):
+        return subject
     return None
+
+
+def worker_from(request: Request) -> str | None:
+    """The worker id a valid worker token belongs to, or None (organization logins never count)."""
+    who = _subject(request)
+    return who if who and not who.startswith(MEMBER) else None
+
+
+MEMBER = "m:"   # organization logins sign "m:<member id>", so they can never pass as a worker
+
+
+def issue_member(member_id: str) -> str:
+    return issue(MEMBER + member_id)
+
+
+def member_from(request: Request) -> str | None:
+    """The organization member id a valid token belongs to, or None."""
+    who = _subject(request)
+    return who[len(MEMBER):] if who and who.startswith(MEMBER) else None
 
 
 def require(request: Request, worker_id: str) -> None:

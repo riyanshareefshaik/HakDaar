@@ -10,7 +10,7 @@ import difflib
 import logging
 from datetime import date, datetime, timezone
 
-from . import db, ledger, llm, memory
+from . import db, ledger, llm, memory, orgs
 
 log = logging.getLogger("hakdaar.chat")
 
@@ -159,8 +159,10 @@ def reputation_alert(employer: str, worker_id: str) -> dict | None:
     if ok:
         # Show the other side too, so an employer isn't judged on complaints alone.
         message += f" {ok} worker{'s' if ok != 1 else ''} said they were paid in full."
+    reply = orgs.latest_verified_reply(employer)
     return {
         "type": "employer_reputation",
+        "employer_reply": reply["text"] if reply else None,
         "severity": severity,
         "employer_name": employer,
         "count": n,
@@ -411,7 +413,16 @@ async def handle_message(worker: dict, message: str, on_recorded=None) -> dict:
 
     # 2. Store message + events in SQLite and compute the exact ledger.
     msg_id = db.add_message(worker_id, "user", message)
-    stored = [db.add_event(worker_id, r, message_id=msg_id) for r in rows]
+    stored = []
+    for r in rows:
+        # "He paid me 2000" when the employer already recorded that payment: confirm theirs, don't add a copy.
+        match = orgs.find_pending_match(worker_id, r) if r["type"] in ("work_day", "payment") else None
+        if match:
+            stored.append(orgs.confirm_entry(worker_id, match["id"]))
+            others.append({"type": "other", "notes": f"this matches the entry {match['employer_name']} recorded, "
+                                                    f"which is now confirmed"})
+        else:
+            stored.append(db.add_event(worker_id, r, message_id=msg_id))
     claimed = claim_unnamed(worker_id, stored)
     if claimed:
         others.append({"type": "other", "notes": f"earlier facts with no employer name were moved to {claimed}"})

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BellRing, CircleAlert, CircleHelp, Loader2, MessagesSquare, RefreshCw, UserRound, Wallet as WalletIcon, WifiOff } from 'lucide-react'
-import { ApiError, api, inr, setToken } from './api'
+import { ApiError, api, inr, setOrgToken, setToken } from './api'
 import { t } from './i18n'
 import { useCountUp } from './hooks'
 import Header from './components/Header'
@@ -9,6 +9,7 @@ import LedgerPanel from './components/LedgerPanel'
 import Login from './components/Login'
 import AccountDrawer from './components/AccountDrawer'
 import AdminDashboard from './components/AdminDashboard'
+import { OrgApp, OrgLogin } from './components/OrgPortal'
 import HowItWorks from './components/HowItWorks'
 import LegalModal from './components/LegalModal'
 
@@ -17,6 +18,7 @@ const LEDGER_TYPES = new Set(['promise', 'work_day', 'payment'])
 const LEARN_POLL_MS = [2500, 6000, 12000, 25000, 45000]
 const EMPTY_LEARNED = { total: 0, items: [] }
 const SESSION_KEY = 'hakdaar.session'
+const ORG_SESSION_KEY = 'hakdaar.orgSession'
 // Same background video as the landing page.
 const BG_VIDEO = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260809_012548_ef22562c-c0ae-4816-ad9d-f8922af4e6a7.mp4'
 
@@ -62,15 +64,19 @@ export default function App() {
   const [welcomeAt, setWelcomeAt] = useState(0) // the welcome card sits after the history loaded at login
   const [welcomeOpen, setWelcomeOpen] = useState(true)
   const owedByEmployer = useRef(null)
+  // Organizations: the org portal session (employers / support groups), and the worker's inbox from them.
+  const [orgSession, setOrgSession] = useState(null)
+  const [inbox, setInbox] = useState(null)
   // Links from the landing page: /app?mode=register, /app?guide=1, /app?doc=terms|privacy
   const [entry] = useState(() => {
     const q = new URLSearchParams(window.location.search)
     const doc = q.get('doc')
-    return { mode: q.get('mode') === 'register' ? 'register' : 'login', guide: q.has('guide'),
+    return { mode: q.get('mode') === 'register' ? 'register' : 'login', guide: q.has('guide'), org: q.get('portal') === 'org',
       doc: doc === 'terms' || doc === 'privacy' ? doc : null }
   })
   const [storyOpen, setStoryOpen] = useState(entry.guide)
   const [legalDoc, setLegalDoc] = useState(entry.doc)
+  const [portal, setPortal] = useState(entry.org ? 'org' : 'worker')
   useEffect(() => {
     if (window.location.search) window.history.replaceState(null, '', window.location.pathname)
   }, [])
@@ -93,6 +99,14 @@ export default function App() {
     try {
       setHealth(await api.health())
       // The stored session is the login token ('worker_id.signature'); older sessions are a bare id.
+      const orgTok = readStored(ORG_SESSION_KEY)
+      if (orgTok) {
+        setOrgToken(orgTok)
+        try { setOrgSession(await api.orgMe()) } catch (e) {
+          if (e instanceof ApiError && [401, 403].includes(e.status)) { writeStored(ORG_SESSION_KEY, null); setOrgToken(null) }
+          else throw e
+        }
+      }
       const session = readStored(SESSION_KEY)
       if (session) {
         const id = session.includes('.') ? session.slice(0, session.lastIndexOf('.')) : session
@@ -161,6 +175,7 @@ export default function App() {
       .catch(() => setWelcome({ greeting: null, nudges: [], has_history: false }))
       .finally(() => setWelcomeLoading(false))
     try {
+      api.myOrgs(id).then(setInbox).catch(() => setInbox(null))
       const [msgs, led, al] = await Promise.all([api.messages(id), api.ledger(id), api.alerts(id)])
       setMessages(msgs)
       setWelcomeAt(msgs.length)
@@ -194,7 +209,51 @@ export default function App() {
     setToken(null)
     setDrawer({ open: false })
     setWorker(null)
-    setMessages([]); setLedger(null); setAlerts([]); setBanner(null)
+    setMessages([]); setLedger(null); setAlerts([]); setBanner(null); setInbox(null)
+  }
+
+  // ---------- organizations ----------
+  const orgLogin = async (creds) => {
+    const r = await api.orgLogin(creds)
+    setOrgToken(r.token)
+    writeStored(ORG_SESSION_KEY, r.token)
+    setOrgSession({ member: r.member, org: r.org })
+  }
+  const orgLogout = () => {
+    writeStored(ORG_SESSION_KEY, null)
+    setOrgToken(null)
+    setOrgSession(null)
+    setPortal('org')
+  }
+
+  const refreshInbox = (id) => api.myOrgs(id).then(setInbox).catch(() => {})
+  const afterOrgChange = async (id) => {
+    const [led, al] = await Promise.all([api.ledger(id), api.alerts(id)])
+    setLedger(led); setAlerts(al)
+    refreshInbox(id)
+    refreshNudges(id)
+  }
+  const answerInvite = async (linkId, accept, alias) => {
+    try {
+      await api.answerInvite(worker.id, linkId, accept, alias)
+      await afterOrgChange(worker.id)
+    } catch (e) { showToast(e.message, 'error') }
+  }
+  const confirmOrgEntry = async (eventId) => {
+    try {
+      const r = await api.confirmEntry(worker.id, eventId)
+      showToast(r.merged ? s.confirmedMerged : s.confirmedOk)
+      await afterOrgChange(worker.id)
+    } catch (e) { showToast(e.message, 'error') }
+  }
+  const disputeOrgEntry = async (eventId) => {
+    try {
+      await api.disputeEntry(worker.id, eventId, null)
+      await afterOrgChange(worker.id)
+    } catch (e) { showToast(e.message, 'error') }
+  }
+  const leaveOrg = async (linkId) => {
+    try { await api.leaveOrg(worker.id, linkId); refreshInbox(worker.id) } catch (e) { showToast(e.message, 'error') }
   }
 
   const deleteAccount = async () => {
@@ -241,6 +300,7 @@ export default function App() {
       setMemoryError(memWarn || null)
       setBanner(r.alerts.find((a) => a.type === 'underpayment') || null)
       api.ledger(id).then(setLedger).catch(() => {})
+      refreshInbox(id)
       refreshNudges(id)
       if (!memWarn) watchLearning(id)
     } catch (e) {
@@ -269,6 +329,7 @@ export default function App() {
         : m)))
       const al = await api.alerts(worker.id)
       setAlerts(al)
+      refreshInbox(worker.id)
       refreshNudges(worker.id)
       setBanner((b) => (b ? al.find((a) => a.type === 'underpayment' && a.employer_name === b.employer_name) || null : null))
       if (r.warning) showToast(r.warning, 'error')
@@ -297,6 +358,7 @@ export default function App() {
   }, [ledger]) // eslint-disable-line react-hooks/exhaustive-deps
   const totals = ledger?.totals || { amount_earned: 0, amount_paid: 0, amount_owed: 0 }
   const repAlerts = alerts.filter((a) => a.type === 'employer_reputation').length
+  const inboxCount = (inbox?.invites.length || 0) + (inbox?.pending.length || 0)
 
   // ---------- screens ----------
   if (backendError) {
@@ -335,6 +397,16 @@ export default function App() {
     </div>
   )
 
+  if (orgSession) {
+    return (
+      <>
+        <OrgApp session={orgSession} onLogout={orgLogout} showToast={showToast} />
+        <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} note={s.legalNote} />
+        {toastEl}
+      </>
+    )
+  }
+
   if (!worker) {
     const setLang = (c) => { setUiLang(c); writeStored('hakdaar.lang', c) }
     return (
@@ -348,7 +420,16 @@ export default function App() {
           <Header s={s} language={uiLang} onLanguage={setLang} showHome />
           {degraded}
           <div className="flex-1 overflow-y-auto scroll-thin">
-            <Login onLogin={login} lang={uiLang} initialMode={entry.mode} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
+            {portal === 'org' ? (
+              <OrgLogin onLogin={orgLogin} onBack={() => setPortal('worker')} onOpenLegal={setLegalDoc} />
+            ) : (
+              <>
+                <Login onLogin={login} lang={uiLang} initialMode={entry.mode} onOpenLegal={setLegalDoc} onHowItWorks={() => setStoryOpen(true)} />
+                <p className="-mt-2 mb-6 text-center">
+                  <button onClick={() => setPortal('org')} className="text-[13.5px] text-fg2 underline-offset-4 hover:text-white hover:underline">{s.orgLoginLink} →</button>
+                </p>
+              </>
+            )}
             <footer className="mx-auto flex max-w-[920px] flex-wrap items-center justify-center gap-x-5 gap-y-1 px-4 pb-6 text-[12.5px] text-muted">
               <span>© 2026 HakDaar</span>
               <button onClick={() => setLegalDoc('terms')} className="hover:text-white">{s.terms}</button>
@@ -366,7 +447,7 @@ export default function App() {
 
   const tabs = [
     { id: 'chat', label: s.chat, icon: MessagesSquare, onClick: () => setTab('chat') },
-    { id: 'ledger', label: s.ledgerTab, icon: WalletIcon, onClick: () => setTab('ledger'), dot: totals.amount_owed > 0 },
+    { id: 'ledger', label: s.ledgerTab, icon: WalletIcon, onClick: () => setTab('ledger'), dot: totals.amount_owed > 0 || inboxCount > 0 },
     { id: 'account', label: s.account, icon: UserRound, onClick: () => openDrawer('memories'), dot: repAlerts > 0 },
   ]
 
@@ -392,6 +473,12 @@ export default function App() {
               </button>
             </div>
             <div className="flex items-center gap-2">
+              {inboxCount > 0 && (
+                <button onClick={() => setTab('ledger')}
+                  className="flex h-10 items-center gap-2 rounded-full bg-white px-3.5 text-[13.5px] font-semibold text-black lg:pointer-events-none">
+                  <span className="size-2 rounded-full bg-owed animate-ping-soft" /> {s.waitingOkN(inboxCount)}
+                </button>
+              )}
               {!welcomeOpen && welcome?.nudges?.length > 0 && (
                 <button onClick={() => setWelcomeOpen(true)} title={s.reminders}
                   className="relative grid size-10 place-items-center rounded-full border border-line-strong bg-pill text-fg2 transition hover:bg-pill-hover hover:text-white">
@@ -419,7 +506,8 @@ export default function App() {
         </section>
 
         <aside className={`${tab === 'ledger' ? 'block' : 'hidden'} glass min-h-0 overflow-hidden lg:block`}>
-          <LedgerPanel s={s} ledger={ledger} loading={loadingWorker} onUndo={undo} />
+          <LedgerPanel s={s} ledger={ledger} loading={loadingWorker} onUndo={undo}
+            inbox={inbox} onAnswerInvite={answerInvite} onConfirmEntry={confirmOrgEntry} onDisputeEntry={disputeOrgEntry} />
         </aside>
       </main>
 
@@ -447,7 +535,7 @@ export default function App() {
         worker={worker} alerts={alerts}
         memoryProps={{ recalled, learned, newIds, error: memoryError, loading: loadingWorker, learning, worker }}
         onLogout={logout} onDelete={deleteAccount} onOpenAdmin={() => { setDrawer((d) => ({ ...d, open: false })); setAdminOpen(true) }} theme={theme} onTheme={setTheme}
-        onOpenLegal={setLegalDoc}
+        onOpenLegal={setLegalDoc} orgs={inbox?.joined || []} onLeaveOrg={leaveOrg}
         health={health} onRecheck={async () => { try { setHealth(await api.health()) } catch (e) { showToast(e.message, 'error') } }}
       />
       {worker?.is_admin && (

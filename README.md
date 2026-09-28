@@ -265,6 +265,33 @@ scripts/            start-hindsight.sh, start-backend.sh, start-frontend.sh
 It runs in public mode: each worker's data needs their login session, and the demo-only routes are off.
 See [DEPLOY.md](DEPLOY.md) for hakdaar.me, either on a small server or from a laptop through a Cloudflare Tunnel.
 
+## Organizations: employers and support groups
+
+Organizations log in separately at `/app?portal=org`, or through "Employer or organization? Log in here"
+on the sign-in screen. There are two kinds:
+
+- **Employer companies.** The owner adds managers and supervisors, each with their own phone + PIN.
+  - Record days worked and payments for linked workers.
+  - See a dues dashboard: earned, paid and owed per worker.
+  - See the reports about their company, never who made them. Once HakDaar verifies them, they can publish a reply.
+- **Support groups** (NGOs, unions, labour offices). The owner adds caseworkers.
+  - See the cases of workers who joined: what each is owed and by whom, and any disputes.
+  - Keep case notes and mark cases resolved.
+
+The worker stays in control and no fact is stored twice:
+- An organization **invites a worker by phone**, and the worker accepts or declines in their app. When
+  accepting an employer, the worker picks which employer in their ledger it is, and those entries merge
+  into the organization's name.
+- What an employer records is **"waiting for your OK"** until the worker taps *Yes, correct* or *Not correct*.
+  Only confirmed entries count. Disputed ones are shown to both sides.
+- Confirming an entry that matches one the worker already made keeps **one** entry, marked "confirmed
+  with employer". If the worker says it in chat ("he paid me 1500") while the matching entry is waiting,
+  that entry is confirmed instead of a second one being created.
+- Undo on a confirmed employer entry puts it back to waiting instead of deleting the employer's record.
+- The admin **verifies** employer organizations. Only verified ones can reply publicly, so nobody can pose
+  as a real employer.
+- Workers can leave an organization at any time.
+
 ## Admin dashboard
 
 One account can be the admin. Set `ADMIN_PHONE`, `ADMIN_NAME` and `ADMIN_PIN` in `.env` (or your host's

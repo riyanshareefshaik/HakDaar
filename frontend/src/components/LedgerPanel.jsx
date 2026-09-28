@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import {
-  AlertTriangle, Banknote, BriefcaseBusiness, CalendarCheck, ChevronDown, CircleAlert, CircleHelp, Gift, Loader2,
+  AlertTriangle, BadgeCheck, Banknote, BriefcaseBusiness, CalendarCheck, ChevronDown, CircleAlert, CircleHelp, Gift, Loader2,
   MessageSquareQuote, Undo2,
 } from 'lucide-react'
 import { api, inr } from '../api'
 import { useCountUp } from '../hooks'
+import OrgInbox from './OrgInbox'
 
 /** Right column: the wage ledger. (How the numbers are calculated lives in My account.) */
-export default function LedgerPanel({ s, ledger, loading, onUndo }) {
+export default function LedgerPanel({ s, ledger, loading, onUndo, inbox, onAnswerInvite, onConfirmEntry, onDisputeEntry }) {
   return (
     <div className="h-full overflow-y-auto scroll-thin p-5 sm:p-6">
+      <OrgInbox s={s} inbox={inbox} onAnswer={onAnswerInvite} onConfirm={onConfirmEntry} onDispute={onDisputeEntry} />
       <LedgerCard s={s} ledger={ledger} loading={loading} onUndo={onUndo} />
     </div>
   )
@@ -127,7 +129,9 @@ function EntryRow({ e, s, onUndo }) {
   return (
     <li className="group flex items-center gap-3 px-3 py-2 text-sm">
       <Icon className="size-4 shrink-0 text-muted" />
-      <span className="flex-1 text-fg2">{conf.label} <span className="font-semibold tabular-nums text-white">{conf.value}</span></span>
+      <span className="flex-1 text-fg2">{conf.label} <span className="font-semibold tabular-nums text-white">{conf.value}</span>
+        {(e.verified_org || e.source === 'employer') && <span className="ml-2 inline-flex items-center gap-1 text-[11.5px] font-medium text-ok"><BadgeCheck className="size-3.5" />{s.withEmployer}</span>}
+      </span>
       <span className="text-[12px] tabular-nums text-muted">{date}</span>
       <button onClick={async () => { setBusy(true); await onUndo(e); setBusy(false) }} disabled={busy} title={s.undo} aria-label={s.undo}
         className="grid size-7 place-items-center rounded-full text-muted transition hover:bg-white/10 hover:text-white lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100">
@@ -257,6 +261,12 @@ function ReputationAlert({ a, s }) {
           : <CircleHelp className="mt-0.5 size-4 shrink-0 text-muted" />}
         <span>{a.message}</span>
       </p>
+      {a.employer_reply && (
+        <p className="mt-3 rounded-xl border border-line bg-raised px-3 py-2 text-sm text-fg2">
+          <span className="mb-0.5 flex items-center gap-1 text-[12px] font-medium text-ok"><BadgeCheck className="size-3.5" /> {s.employerReply}</span>
+          "{a.employer_reply}"
+        </p>
+      )}
       {!state.summary && (
         <button onClick={ask} disabled={state.loading} className="btn-dark mt-3 px-4 py-2 text-sm">
           {state.loading ? <Loader2 className="size-4 animate-spin" /> : <MessageSquareQuote className="size-4" />} {s.askReputation}

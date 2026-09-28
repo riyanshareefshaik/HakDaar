@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertTriangle, Loader2, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BadgeCheck, Loader2, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react'
 import { api, inr } from '../api'
 
 /**
@@ -8,19 +8,19 @@ import { api, inr } from '../api'
  * Overview numbers, every account, every employer report, and the "delete all data" switch.
  * English only: it is a tool for the team running HakDaar, not for workers.
  */
-const TABS = [['overview', 'Overview'], ['workers', 'Workers'], ['reports', 'Reports'], ['danger', 'Danger zone']]
+const TABS = [['overview', 'Overview'], ['workers', 'Workers'], ['orgs', 'Organizations'], ['reports', 'Reports'], ['danger', 'Danger zone']]
 
 export default function AdminDashboard({ open, onClose, admin, onResetDone, showToast }) {
   const [tab, setTab] = useState('overview')
-  const [data, setData] = useState({ overview: null, workers: [], reports: [] })
+  const [data, setData] = useState({ overview: null, workers: [], reports: [], orgs: [] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const [overview, workers, reports] = await Promise.all([api.adminOverview(), api.adminWorkers(), api.adminReports()])
-      setData({ overview, workers, reports })
+      const [overview, workers, reports, orgs] = await Promise.all([api.adminOverview(), api.adminWorkers(), api.adminReports(), api.adminOrgs()])
+      setData({ overview, workers, reports, orgs })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }, [])
 
@@ -55,6 +55,7 @@ export default function AdminDashboard({ open, onClose, admin, onResetDone, show
             {label}
             {k === 'workers' && data.workers.length > 0 && <span className="ml-1.5 opacity-60">{data.workers.length}</span>}
             {k === 'reports' && data.reports.length > 0 && <span className="ml-1.5 opacity-60">{data.reports.length}</span>}
+            {k === 'orgs' && data.orgs.length > 0 && <span className="ml-1.5 opacity-60">{data.orgs.length}</span>}
           </button>
         ))}
       </nav>
@@ -65,6 +66,7 @@ export default function AdminDashboard({ open, onClose, admin, onResetDone, show
           {tab === 'overview' && <Overview o={data.overview} loading={loading} />}
           {tab === 'workers' && <Workers workers={data.workers} onChanged={load} showToast={showToast} />}
           {tab === 'reports' && <Reports reports={data.reports} onChanged={load} showToast={showToast} />}
+          {tab === 'orgs' && <Orgs orgs={data.orgs} onChanged={load} showToast={showToast} />}
           {tab === 'danger' && <Danger onResetDone={onResetDone} showToast={showToast} />}
         </div>
       </main>
@@ -89,11 +91,12 @@ function Overview({ o, loading }) {
     <div className="space-y-6">
       <section>
         <h2 className="eyebrow mb-3">People</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Tile label="Accounts" value={o.workers} />
           <Tile label="New today" value={o.new_workers_24h} hint="last 24 hours" />
           <Tile label="New this week" value={o.new_workers_7d} />
           <Tile label="Messages" value={o.messages} hint="sent by workers" />
+          <Tile label="Organizations" value={o.organizations ?? 0} hint="employers & support groups" />
         </div>
       </section>
       <section>
@@ -254,5 +257,48 @@ function Danger({ onResetDone, showToast }) {
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />} Delete everything
       </button>
     </section>
+  )
+}
+
+function Orgs({ orgs, onChanged, showToast }) {
+  const [busy, setBusy] = useState(null)
+  const act = async (id, fn, done) => {
+    setBusy(id)
+    try { await fn(); showToast(done); await onChanged() } catch (e) { showToast(e.message, 'error') } finally { setBusy(null) }
+  }
+  if (!orgs.length) return <p className="text-center text-sm text-muted">No organizations yet.</p>
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted">
+        Verify an employer only after checking it really is that company (e.g. a call to the owner's number).
+        Verified employers get a badge and can publicly reply to reports.
+      </p>
+      <ul className="space-y-2">
+        {orgs.map((o) => (
+          <li key={o.id} className="card flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 font-semibold text-white">
+                {o.name}
+                {o.verified
+                  ? <span className="flex items-center gap-1 rounded-full bg-ok/15 px-2 py-0.5 text-[11.5px] text-ok"><BadgeCheck className="size-3.5" /> Verified</span>
+                  : <span className="rounded-full bg-pill px-2 py-0.5 text-[11.5px] text-fg2">Not verified</span>}
+              </p>
+              <p className="text-[13px] text-muted">
+                {o.kind === 'employer' ? 'Employer' : 'Support group'} · owner +91 {o.owner_phone || '—'} · {o.members} login(s) · {o.workers} worker(s) · since {date(o.created_at)}
+              </p>
+            </div>
+            <button onClick={() => act(o.id, () => api.adminVerifyOrg(o.id, !o.verified), o.verified ? 'Verification removed.' : `${o.name} is verified.`)}
+              disabled={busy === o.id} className={o.verified ? 'btn-dark px-3 py-1.5 text-sm' : 'btn-white px-3 py-1.5 text-sm'}>
+              {busy === o.id ? <Loader2 className="size-4 animate-spin" /> : <BadgeCheck className="size-4" />} {o.verified ? 'Unverify' : 'Verify'}
+            </button>
+            <button onClick={() => window.confirm(`Delete ${o.name}? Its logins and links are removed; entries workers already confirmed stay in their records.`)
+              && act(o.id, () => api.adminDeleteOrg(o.id), `${o.name} was deleted.`)}
+              disabled={busy === o.id} className="btn-dark px-3 py-1.5 text-sm hover:border-owed/60 hover:text-owed">
+              <Trash2 className="size-4" /> Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import auth, chat, db, ledger, llm, memory, nudges
+from . import auth, chat, db, ledger, llm, memory, nudges, orgs
+from .org_routes import router as org_router
 from .config import settings
 from .health import check_groq, check_hindsight
 
@@ -56,6 +57,8 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+app.include_router(org_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -331,9 +334,10 @@ async def delete_event(worker_id: str, event_id: int):
     employer are rebuilt, and a correction is retained so memory stays consistent."""
     w = _worker_or_404(worker_id)
     ev = db.get_event(w["id"], event_id)
-    if not ev:
+    if not ev or ev["status"] != "confirmed":
         raise HTTPException(404, "Entry not found")
-    db.delete_event(w["id"], event_id)
+    # An employer's entry goes back to 'waiting for your OK' rather than disappearing.
+    orgs.undo_entry(w["id"], ev)
     rows = ledger.summarize(db.list_events(w["id"]))
     chat.rebuild_reputation(w["id"], ev["employer_name"], rows)
 
@@ -473,7 +477,8 @@ async def employer_reputation(name: str):
         error = str(e)
     if not summary and not error and stats["workers_reporting_problems"] + stats["paid_ok"] == 0:
         summary = f"No worker has reported anything about {employer} yet."
-    return {"employer_name": employer, "stats": stats, "summary": summary, "error": error}
+    return {"employer_name": employer, "stats": stats, "summary": summary, "error": error,
+            "employer_reply": orgs.latest_verified_reply(employer)}
 
 
 @app.post("/reset")
@@ -576,3 +581,30 @@ async def admin_reset(request: Request):
             warning = str(e)
             break
     return {"banks_deleted": deleted, "warning": warning}
+
+
+@app.get("/admin/orgs")
+def admin_orgs(request: Request):
+    _require_admin(request)
+    return [{**o, "verified": bool(o["verified"])} for o in orgs.list_orgs()]
+
+
+class VerifyIn(BaseModel):
+    verified: bool
+
+
+@app.post("/admin/orgs/{org_id}/verify")
+def admin_verify_org(org_id: str, body: VerifyIn, request: Request):
+    """Verified employer organizations can reply publicly to reports; workers see a 'verified' badge."""
+    _require_admin(request)
+    if not orgs.set_verified(org_id, body.verified):
+        raise HTTPException(404, "No such organization.")
+    return {"id": org_id, "verified": body.verified}
+
+
+@app.delete("/admin/orgs/{org_id}")
+def admin_delete_org(org_id: str, request: Request):
+    _require_admin(request)
+    if not orgs.delete_org(org_id):
+        raise HTTPException(404, "No such organization.")
+    return {"deleted": org_id}

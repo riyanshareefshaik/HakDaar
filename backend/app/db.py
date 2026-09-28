@@ -55,6 +55,58 @@ CREATE TABLE IF NOT EXISTS employer_reports (
     summary        TEXT NOT NULL,
     created_at     TEXT NOT NULL
 );
+
+-- Organizations: an employer's company, or a worker-support group (NGO, union, labour office).
+CREATE TABLE IF NOT EXISTS organizations (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('employer', 'support')),
+    verified    INTEGER NOT NULL DEFAULT 0,      -- set by the HakDaar admin
+    created_at  TEXT NOT NULL
+);
+
+-- People who log in for an organization (separate from worker accounts).
+CREATE TABLE IF NOT EXISTS org_members (
+    id          TEXT PRIMARY KEY,
+    org_id      TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    phone       TEXT NOT NULL UNIQUE,
+    pin_hash    TEXT NOT NULL,
+    role        TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'supervisor', 'caseworker')),
+    created_at  TEXT NOT NULL
+);
+
+-- A worker linked to an organization. Only 'active' after the worker accepts the invite.
+CREATE TABLE IF NOT EXISTS org_links (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id       TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    worker_id    TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+    status       TEXT NOT NULL CHECK (status IN ('invited', 'active', 'declined', 'removed')),
+    case_status  TEXT NOT NULL DEFAULT 'open' CHECK (case_status IN ('open', 'resolved')),
+    invited_by   TEXT,
+    created_at   TEXT NOT NULL,
+    responded_at TEXT,
+    UNIQUE (org_id, worker_id)
+);
+
+-- Case notes written by a support organization.
+CREATE TABLE IF NOT EXISTS org_notes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id      TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    worker_id   TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+    member_id   TEXT,
+    text        TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
+-- An employer organization's public reply to reports about it.
+CREATE TABLE IF NOT EXISTS org_replies (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id         TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    employer_name  TEXT NOT NULL,
+    text           TEXT NOT NULL,
+    created_at     TEXT NOT NULL
+);
 """
 
 
@@ -91,11 +143,31 @@ def init_db() -> None:
         _add_column(conn, "workers", "terms_accepted_at", "terms_accepted_at TEXT")
         # 'day' = promised daily rate; 'fixed' = agreed lump sum / bonus for work already done.
         _add_column(conn, "events", "basis", "basis TEXT NOT NULL DEFAULT 'day'")
+        # Entries can come from an employer organization: they wait ('pending') until the worker
+        # confirms or disputes them. Only 'confirmed' entries count in the ledger. When a confirmed
+        # employer entry duplicates one the worker already made, it is 'merged' into it instead.
+        _add_column(conn, "events", "source", "source TEXT NOT NULL DEFAULT 'worker'")
+        _add_column(conn, "events", "status", "status TEXT NOT NULL DEFAULT 'confirmed'")
+        _add_column(conn, "events", "org_id", "org_id TEXT")
+        _add_column(conn, "events", "recorded_by", "recorded_by TEXT")
+        _add_column(conn, "events", "merged_into", "merged_into INTEGER")
+        _add_column(conn, "events", "verified_org", "verified_org TEXT")
+        _add_column(conn, "events", "dispute_reason", "dispute_reason TEXT")
+        conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_events_worker ON events (worker_id, status);
+            CREATE INDEX IF NOT EXISTS idx_events_org ON events (org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_messages_worker ON messages (worker_id);
+            CREATE INDEX IF NOT EXISTS idx_reports_employer ON employer_reports (employer_name);
+            CREATE INDEX IF NOT EXISTS idx_links_worker ON org_links (worker_id, status);
+            CREATE INDEX IF NOT EXISTS idx_links_org ON org_links (org_id, status);
+        """)
 
 
 def reset_db() -> None:
     with connect() as conn:
         conn.executescript(
+            "DELETE FROM org_replies; DELETE FROM org_notes; DELETE FROM org_links; DELETE FROM org_members; "
+            "DELETE FROM organizations; "
             "DELETE FROM employer_reports; DELETE FROM events; DELETE FROM messages; DELETE FROM workers;"
         )
 
@@ -212,18 +284,23 @@ def add_event(worker_id: str, event: dict, message_id: int | None = None,
               created_at: str | None = None) -> dict:
     with connect() as conn:
         cur = conn.execute(
-            """INSERT INTO events (worker_id, type, employer_name, amount, days, date, notes, basis, message_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO events (worker_id, type, employer_name, amount, days, date, notes, basis, message_id,
+                                  created_at, source, status, org_id, recorded_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (worker_id, event["type"], event["employer_name"], event.get("amount"), event.get("days"),
-             event.get("date"), event.get("notes"), event.get("basis") or "day", message_id, created_at or now_iso()),
+             event.get("date"), event.get("notes"), event.get("basis") or "day", message_id, created_at or now_iso(),
+             event.get("source") or "worker", event.get("status") or "confirmed", event.get("org_id"),
+             event.get("recorded_by")),
         )
         row = conn.execute("SELECT * FROM events WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
 
 
 def list_events(worker_id: str) -> list[dict]:
+    """Entries that count in the ledger (confirmed). Pending/disputed employer entries are separate."""
     with connect() as conn:
-        return [dict(r) for r in conn.execute("SELECT * FROM events WHERE worker_id = ? ORDER BY id", (worker_id,))]
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM events WHERE worker_id = ? AND status = 'confirmed' ORDER BY id", (worker_id,))]
 
 
 def get_event(worker_id: str, event_id: int) -> dict | None:
@@ -251,8 +328,9 @@ def admin_overview() -> dict:
             "new_workers_24h": one("SELECT COUNT(*) FROM workers WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-1 day')"),
             "new_workers_7d": one("SELECT COUNT(*) FROM workers WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 day')"),
             "messages": one("SELECT COUNT(*) FROM messages WHERE role = 'user'"),
-            "entries": one("SELECT COUNT(*) FROM events"),
-            "employers": one("SELECT COUNT(DISTINCT lower(employer_name)) FROM events"),
+            "entries": one("SELECT COUNT(*) FROM events WHERE status = 'confirmed'"),
+            "employers": one("SELECT COUNT(DISTINCT lower(employer_name)) FROM events WHERE status = 'confirmed'"),
+            "organizations": one("SELECT COUNT(*) FROM organizations"),
             "reports_short": one("SELECT COUNT(*) FROM employer_reports WHERE kind = 'short_payment'"),
             "reports_late": one("SELECT COUNT(*) FROM employer_reports WHERE kind = 'late_payment'"),
             "reports_ok": one("SELECT COUNT(*) FROM employer_reports WHERE kind = 'paid_ok'"),
@@ -265,7 +343,7 @@ def admin_workers() -> list[dict]:
         rows = conn.execute(f"""
             SELECT {', '.join('w.' + c.strip() for c in PUBLIC_COLS.split(','))},
                    (SELECT COUNT(*) FROM messages m WHERE m.worker_id = w.id AND m.role = 'user') AS messages,
-                   (SELECT COUNT(*) FROM events e WHERE e.worker_id = w.id) AS entries,
+                   (SELECT COUNT(*) FROM events e WHERE e.worker_id = w.id AND e.status = 'confirmed') AS entries,
                    (SELECT COUNT(*) FROM employer_reports r WHERE r.worker_id = w.id) AS reports,
                    (SELECT MAX(created_at) FROM messages m WHERE m.worker_id = w.id) AS last_active
             FROM workers w ORDER BY w.created_at DESC""")
@@ -290,6 +368,8 @@ def delete_report(report_id: int) -> bool:
 def delete_worker(worker_id: str) -> None:
     with connect() as conn:
         conn.execute("DELETE FROM employer_reports WHERE worker_id = ?", (worker_id,))
+        conn.execute("DELETE FROM org_notes WHERE worker_id = ?", (worker_id,))
+        conn.execute("DELETE FROM org_links WHERE worker_id = ?", (worker_id,))
         conn.execute("DELETE FROM events WHERE worker_id = ?", (worker_id,))
         conn.execute("DELETE FROM messages WHERE worker_id = ?", (worker_id,))
         conn.execute("DELETE FROM workers WHERE id = ?", (worker_id,))
@@ -299,7 +379,8 @@ def employer_names_for_worker(worker_id: str) -> list[str]:
     """Employers this worker has mentioned, most recently mentioned first."""
     with connect() as conn:
         rows = conn.execute(
-            "SELECT employer_name, MAX(id) AS last FROM events WHERE worker_id = ? GROUP BY employer_name ORDER BY last DESC",
+            "SELECT employer_name, MAX(id) AS last FROM events WHERE worker_id = ? AND status = 'confirmed' "
+            "GROUP BY employer_name ORDER BY last DESC",
             (worker_id,),
         )
         return [r["employer_name"] for r in rows]
