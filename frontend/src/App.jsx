@@ -31,7 +31,7 @@ export default function App() {
   const [backendError, setBackendError] = useState(null)
   const [worker, setWorker] = useState(null)
   const [booted, setBooted] = useState(false)
-  const [uiLang, setUiLang] = useState(() => readStored('hakdaar.lang') || 'te')
+  const [uiLang, setUiLang] = useState(() => readStored('hakdaar.lang') || 'en')
   const [theme, setTheme] = useState(() => (readStored('hakdaar.theme') === 'light' ? 'light' : 'dark'))
   useEffect(() => {
     const root = document.documentElement
