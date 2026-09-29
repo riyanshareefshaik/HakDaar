@@ -116,6 +116,8 @@ def now_iso() -> str:
 
 @contextmanager
 def connect():
+    # Hosts like Railway may start with no /data folder until a volume is attached.
+    settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(settings.database_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
