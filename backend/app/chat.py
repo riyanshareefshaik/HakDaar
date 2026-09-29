@@ -467,7 +467,8 @@ async def handle_message(worker: dict, message: str, on_recorded=None) -> dict:
     rep_mems = results[1] if not isinstance(results[1], Exception) else []
     for r in results:
         if isinstance(r, memory.MemoryUnavailable):
-            warnings.append(f"Memory is offline: {r}")
+            log.warning("memory offline: %s", r)  # details stay in the server log, not in front of workers
+            warnings.append("Memory is offline right now; wages were still recorded.")
             break
         if isinstance(r, Exception):
             log.exception("memory step failed", exc_info=r)

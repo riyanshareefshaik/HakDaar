@@ -61,7 +61,7 @@ async def _call(coro_fn, *args, **kwargs):
         return await coro_fn(*args, **kwargs)
     except (aiohttp.ClientConnectionError, ConnectionError, asyncio.TimeoutError) as e:
         raise MemoryUnavailable(
-            f"Cannot reach Hindsight at {settings.hindsight_url}. Is the Docker container running?"
+            f"Cannot reach Hindsight at {settings.hindsight_url}."
         ) from e
     except ApiException as e:
         raise MemoryUnavailable(f"Hindsight returned an error ({e.status}): {e.reason}") from e

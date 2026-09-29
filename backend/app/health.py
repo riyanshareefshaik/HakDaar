@@ -23,7 +23,7 @@ async def check_hindsight() -> dict:
         return {"ok": True, "url": url, "version": version}
     except httpx.ConnectError:
         return {"ok": False, "url": url,
-                "error": "Cannot connect to Hindsight. Is the Docker container running? (see README)"}
+                "error": "Cannot connect to Hindsight."}
     except httpx.HTTPError as e:
         return {"ok": False, "url": url, "error": f"Hindsight health check failed: {e}"}
 
