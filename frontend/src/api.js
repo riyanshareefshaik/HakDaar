@@ -1,6 +1,21 @@
 // All calls go through Vite's /api proxy to the FastAPI backend (see vite.config.js).
 // A static host like Vercel sets VITE_API_URL to wherever the backend runs, e.g. https://…/api
-const BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+let BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+
+// When the backend runs on a laptop behind a Cloudflare quick tunnel, its address changes on every
+// restart. scripts/mac-server.sh publishes the current one to backend.json in the GitHub repo, and
+// the live site reads it here, so the website never has to be redeployed for a new address.
+const BACKEND_POINTER = 'https://raw.githubusercontent.com/riyanshareefshaik/HakDaar/main/backend.json'
+const ready = import.meta.env.DEV ? Promise.resolve() : (async () => {
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 4000)
+    const res = await fetch(`${BACKEND_POINTER}?t=${Math.floor(Date.now() / 60000)}`, { signal: ctrl.signal, cache: 'no-store' })
+    clearTimeout(timer)
+    const api = res.ok ? (await res.json())?.api : null
+    if (typeof api === 'string' && /^https:\/\/[^\s]+$/.test(api)) BASE = api.replace(/\/+$/, '')
+  } catch { /* keep the built-in address */ }
+})()
 
 export class ApiError extends Error {
   constructor(message, status, service) {
@@ -25,6 +40,7 @@ export const setOrgToken = (t) => { orgToken = t || null }
 const orgHeader = () => (orgToken ? { Authorization: `Bearer ${orgToken}` } : {})
 
 async function send(path, method, body, headers = authHeader()) {
+  await ready
   try {
     return await fetch(`${BASE}${path}`, {
       method,
@@ -89,6 +105,7 @@ async function transcribe(blob, language) {
   form.append('audio', blob, `speech.${ext}`)
   if (language) form.append('language', language)
   let res
+  await ready
   try {
     res = await fetch(`${BASE}/transcribe`, { method: 'POST', body: form, headers: authHeader() })
   } catch {
