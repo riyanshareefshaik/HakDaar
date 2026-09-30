@@ -55,16 +55,37 @@ async def close() -> None:
         _client = None
 
 
-async def _call(coro_fn, *args, **kwargs):
+# When Hindsight is unreachable, don't make every chat message wait for a timeout: after one
+# failure, skip memory for a short cool-down and answer from the ledger straight away.
+CALL_TIMEOUT = 8.0      # recall / retain (retain is queued server-side, so it returns fast)
+REFLECT_TIMEOUT = 25.0  # reflect runs an LLM inside Hindsight
+COOLDOWN = 60.0
+_down_until = 0.0
+
+
+def _unavailable() -> MemoryUnavailable:
+    return MemoryUnavailable(f"Cannot reach Hindsight at {settings.hindsight_url}.")
+
+
+async def _call(coro_fn, *args, timeout: float | None = None, **kwargs):
     """Run a Hindsight call and translate transport/API errors into MemoryUnavailable."""
+    global _down_until
+    loop = asyncio.get_running_loop()
+    if loop.time() < _down_until:
+        raise _unavailable()
     try:
-        return await coro_fn(*args, **kwargs)
-    except (aiohttp.ClientConnectionError, ConnectionError, asyncio.TimeoutError) as e:
-        raise MemoryUnavailable(
-            f"Cannot reach Hindsight at {settings.hindsight_url}."
-        ) from e
+        return await asyncio.wait_for(coro_fn(*args, **kwargs), timeout or CALL_TIMEOUT)
+    except (aiohttp.ClientConnectionError, ConnectionError, OSError, asyncio.TimeoutError) as e:
+        _down_until = loop.time() + COOLDOWN
+        log.warning("Hindsight unreachable (%s); skipping memory for %.0fs", type(e).__name__, COOLDOWN)
+        raise _unavailable() from e
     except ApiException as e:
         raise MemoryUnavailable(f"Hindsight returned an error ({e.status}): {e.reason}") from e
+
+
+def reset_cooldown() -> None:
+    global _down_until
+    _down_until = 0.0
 
 
 async def ensure_bank(bank_id: str) -> None:
@@ -142,7 +163,8 @@ async def list_learned(bank_id: str, limit: int = 30) -> dict:
 async def reflect(bank_id: str, query: str, context: str | None = None) -> str:
     """Hindsight's reasoned answer over a bank. Empty string if the bank doesn't exist yet."""
     try:
-        resp = await _call(client().areflect, bank_id=bank_id, query=query, budget="low", context=context)
+        resp = await _call(client().areflect, bank_id=bank_id, query=query, budget="low", context=context,
+                           timeout=REFLECT_TIMEOUT)
     except MemoryUnavailable as e:
         if isinstance(e.__cause__, NotFoundException):
             return ""

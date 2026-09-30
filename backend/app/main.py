@@ -156,6 +156,8 @@ def root():
 async def health():
     """Checks Hindsight and Groq in parallel. Always returns 200 so the UI can show details."""
     hindsight, groq = await asyncio.gather(check_hindsight(), check_groq())
+    if hindsight["ok"]:
+        memory.reset_cooldown()  # memory is back: stop skipping it
     return {
         "status": "ok" if hindsight["ok"] and groq["ok"] else "degraded",
         "hindsight": hindsight,
